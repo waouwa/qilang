@@ -1,0 +1,32 @@
+(if-without-checking "switch on the typechecker first!~%")
+
+(define backchain  
+   {symbol --> [[symbol]] --> symbol} 
+    Conc Assumptions -> (backchain* [Conc] Assumptions Assumptions))
+
+(define backchain*  
+   {[symbol] --> [[symbol]] --> [[symbol]] --> symbol} 
+   [ ] _ _ -> proved  
+   [Goal | Goals] [[Goal <= | Subgoals] | _] Assumptions  
+   <- (fail-if (/. X (= X unproved)) 
+               (backchain* (append Subgoals Goals) Assumptions Assumptions))       
+   Goals [_ | Rest] Assumptions -> (backchain* Goals Rest Assumptions)  
+   _ _ _ -> unproved)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+

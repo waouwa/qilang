@@ -1,0 +1,23 @@
+(abstype stack
+
+(:types	empty-stack  :  (A --> (stack B))
+             push : (A --> (stack A) --> (stack A))
+             top : ((stack A) --> A)
+	pop : ((stack A) --> (stack A))                     		)
+
+(:defs	(define empty-stack
+         		_ -> "e!")
+
+        	(define push
+          		X S -> [X | S])
+
+        	(define top
+           		X -> (error "empty stack!") where (=  X (empty-stack ok))
+          		 [X | S] -> X)
+        
+        	(define pop
+          		 X -> (error "empty stack!") where (= X (empty-stack ok))
+           		[X | S] -> S)	)	) 
+
+
+

@@ -1,0 +1,38 @@
+(define query  
+  [is Object Concept] -> (if (belongs? Object Concept) yes no))
+
+(define belongs?  
+  Object Concept -> (element? Concept (fix spread-activation [Object])))
+
+(define spread-activation  
+  [] -> [] 
+  [Vertex | Vertices] -> (union (accessible-from Vertex)
+                                (spread-activation Vertices)))
+
+(define accessible-from  
+  Vertex -> [Vertex | (union (is_links Vertex) (type_links Vertex))])
+
+(define is_links  
+  Vertex -> (get-prop Vertex is_a []))
+
+(define type_links 
+  Vertex -> (get-prop Vertex type_of []))
+
+(define assert
+   [Object is_a Type] -> (put-prop Object is_a [Type | (is_links Object)])
+   [Type1 type_of Type2] -> (put-prop Type1 type_of [Type2 | (type_links Type1)]))
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+

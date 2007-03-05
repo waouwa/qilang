@@ -1,0 +1,313 @@
+(if-without-checking "switch on the typechecker first!~%")
+
+(datatype wff
+
+   if (not (constant? P))
+   P : symbol;
+   _________
+   P : wff;
+
+   F : predicate; X : [term];
+   ____________________
+   [F  X] : wff;
+
+    F : predicate,  X : [term] >> P;
+   ________________________
+   (predicate? F) : verified,  [F X] : wff >> P;
+ 
+   F : symbol >> P;
+   _____________
+   [F X] : wff >> P;
+
+   P : wff;
+   =========
+   [~ P] : wff;
+
+   if (element? C [v & => <=>])
+   P : wff; Q : wff;
+   =================
+   [P C Q] : wff;
+
+   if (element? Q [all some])
+   V : variable; X : wff;
+   ===========================
+   [Q V X] : wff;)
+
+(datatype predicate
+
+  if (not (constant? X))
+  X : symbol;
+  ___________
+  X : predicate;)
+
+(datatype variable
+
+  if (not (constant? X))
+  X : symbol;
+  ___________
+  X : variable;
+
+  X : symbol >> P;
+ ______________
+  X : variable >> P;)
+
+(datatype functor
+
+  if (not (constant? X))
+  X : symbol;
+  ___________
+  X : functor;)
+
+(datatype term
+ 
+  F : functor; Terms : [term];
+  ========================
+  [F | Terms] : term;
+
+  Term : number;
+  _____________
+  Term : term;
+
+  Term : symbol;
+  ____________
+  Term : term; )
+
+(datatype globals
+
+___________________________
+(value *amplification*) : number;)
+
+(set *amplification* 0)
+
+(define constant?
+  {A --> boolean}
+  X -> (member? X [v ~ => <=> & all some]))
+
+(define predicate?
+   {A --> boolean}
+   F -> false	where (member? F [~ v => <=> & all some])
+   F -> (symbol? F))
+  
+(define member?
+   {A --> [B] --> boolean}
+     _ [] -> false
+     X [Y | _] -> true	  where (== X Y)
+     X [_ | Z] -> (member? X Z))
+
+(synonyms
+    note (term * term)
+    parameter term)
+
+(define unify_literals
+  {wff --> wff --> [note] --> [note]}
+  P P MGU -> MGU
+  [F1 Terms]  [F2 Terms*] MGU
+  ->  (unify_terms (deref_term Terms MGU) (deref_term Terms* MGU)  MGU)
+              where (and (= F1 F2) (and (predicate? F1) (predicate? F2)))
+  _ _ _ -> [(@p no mgu)])
+
+(define unify_terms
+  {[term] --> [term] --> [note] --> [note]}
+  Terms Terms MGU -> MGU
+  [Term1 | Terms] [Term2 | Terms*] MGU
+   -> (let MGU* (unify_term Term1 Term2 MGU)
+                (if (unification_succeeds? MGU*)
+                    (unify_terms (deref_term Terms MGU*)
+                                  (deref_term Terms* MGU*)
+                                  MGU*)
+                    MGU*))
+  _ _ _ -> [(@p no mgu)])
+
+(define unify_term
+  {term --> term --> [note] --> [note]}
+  Term Term MGU -> MGU
+  Term Term* MGU
+   -> [(@p Term Term*) | MGU]     where (and (variable? Term) (= (occurrences Term Term*) 0))
+  Term Term* MGU
+   -> [(@p Term* Term) | MGU]     where (and (variable? Term*) (= (occurrences Term* Term) 0))
+  [Functor | Terms] [Functor | Terms*] MGU -> (unify_terms Terms Terms* MGU)
+  _ _ _ -> [(@p no mgu)])
+
+(define deref_term
+  {[term] --> [note] --> [term]}
+   [] _ -> []
+   [Term | Terms] MGU -> [(deref* Term MGU) | Terms])
+
+(define deref*
+  {term --> [note] --> term}
+  [Functor | Terms] MGU -> [Functor | (map (/. X (deref* X MGU)) Terms)]
+  Atom MGU -> (let NewTerm (fetch_value Atom MGU)
+                                  (if (= Atom NewTerm) Atom (deref* NewTerm MGU))))
+
+(define fetch_value
+  {term --> [note] --> term}
+  Atom [] -> Atom
+  Atom [(@p Atom Value) | _] -> Value
+  Atom [_ | MGU] -> (fetch_value Atom MGU))
+
+(define unification_succeeds?
+  {[note] --> boolean} 
+  [(@p no mgu)] -> false
+  _ -> true)
+
+(define replace_by
+  {term --> term --> wff --> wff}
+  V1 _ [all V1 P] -> [all V1 P]
+  V1 _ [some V1 P] -> [some V1 P]
+  V1 V2 [all X Y] -> [all X (replace_by V1 V2 Y)]
+  V1 V2 [some X Y] -> [some X (replace_by V1 V2 Y)]
+  V1 V2 [P v Q] -> [(replace_by V1 V2 P) v (replace_by V1 V2 Q)]
+  V1 V2 [P & Q] -> [(replace_by V1 V2 P) & (replace_by V1 V2 Q)]
+  V1 V2 [P => Q] -> [(replace_by V1 V2 P) => (replace_by V1 V2 Q)]
+  V1 V2 [P <=> Q] -> [(replace_by V1 V2 P) <=> (replace_by V1 V2 Q)]
+  V1 V2 [~ P] -> [~ (replace_by V1 V2 P)]
+  V1 V2 [F Terms]
+  ->  [F (map (/. Term (replace_by* V1 V2 Term)) Terms)]	where (predicate? F)
+  _ _ P -> P)
+
+(define replace_by*
+  {term --> term --> term --> term}
+  V1 V2 V1 -> V2
+  V1 V2 [Func | Terms]
+  -> [Func | (map (/. Term (replace_by* V1 V2 Term)) Terms)]
+  _ _ Term -> Term)
+
+(define cnf
+  {wff --> wff}
+  P -> (eliminate_universal_quantifiers
+         (amplify (skolemise P) (value *amplification*))))
+
+(define amplify
+  {wff --> number --> wff}
+  P 0 -> P
+  [all X P] N -> (skolemise (mk_conjunction [all X P] N))
+  P _ -> P)
+
+(define mk_conjunction
+  {wff --> number --> wff} 
+  P 0 -> P
+  P N -> [P & (mk_conjunction P (- N 1))])
+
+(define eliminate_universal_quantifiers
+  {wff --> wff}
+  [all X P] -> (eliminate_universal_quantifiers (replace_by X (gensym "X") P))
+  P -> P)
+
+(define skolemise
+  {wff --> wff}
+  P -> (skolemise* (prenex P) []))
+
+(define skolemise*
+  {wff --> [term] --> wff}
+  [all X P] Vs -> [all X (skolemise* P [X | Vs])]
+  [some X P] Vs -> (skolemise* (replace_by X [(gensym "f") | Vs] P) Vs)
+  P _ -> P)
+
+(define prenex
+  {wff --> wff}
+   P -> (fix prenex* (rectify P)))
+
+(define rectify
+  {wff --> wff}
+  [all X P] -> (let Y (gensym "X")
+                 [all Y (rectify (replace_by X Y P))])
+  [some X P] -> (let Y (gensym "X")
+                 [some Y (rectify (replace_by X Y P))])
+  [P & Q] -> [(rectify P) & (rectify Q)]
+  [P v Q] -> [(rectify P) v (rectify Q)]
+  [P => Q] -> [(rectify P) => (rectify Q)]
+  [P <=> Q] -> [(rectify P) <=> (rectify Q)]
+  [~ P] -> [~ (rectify P)]
+  P -> P)
+
+(define prenex*
+  {wff --> wff}
+  [~ [all X P]] -> [some X [~ P]]
+  [~ [some X P]] -> [all X [~ P]]
+  [[all X P] & Q] -> [all X [P & Q]]
+  [[some X P] & Q] -> [some X [P & Q]]
+  [P & [all X Q]] -> [all X [P & Q]]
+  [P & [some X Q]] -> [some X [P & Q]]
+  [[all X P] v Q] -> [all X [P v Q]]
+  [[some X P] v Q] -> [some X [P v Q]]
+  [P v [all X Q]] -> [all X [P v Q]]
+  [P v [some X Q]] -> [some X [P v Q]]
+  [P => Q] -> [[~ P] v Q]
+  [P <=> Q] -> (rectify [[P => Q] & [Q => P]])
+  [P v [Q & R]] -> (rectify [[P v Q] & [P v R]])
+  [[Q & R] v P] -> (rectify [[P v Q] & [P v R]])
+  [~ [P & Q]] -> [[~ P] v [~ Q]]
+  [~ [P v Q]] -> [[~ P] & [~ Q]]
+  [~ [~ P]] -> P
+  [P v Q] -> [(prenex* P) v (prenex* Q)]
+  [P & Q] -> [(prenex* P) & (prenex* Q)]
+  [~ P] -> [~ (prenex* P)]
+  [all X P] -> [all X (prenex* P)]
+  [some X P] -> [some X (prenex* P)]
+  P -> P)
+
+(theory autofol
+
+name raa+
+let MGU (unify_literals P Q Notes)
+if (unification_succeeds? MGU)
+let Notes MGU
+_______________
+[~ P], Q >> R;
+
+name conjunctive-normal-form
+let Assumptions (map cnf Assumptions)
+P;
+________
+P;
+
+name indirect-proof
+[~ P] >> P;
+___________
+P;
+
+name &>>
+P, Q >> R;
+________
+[P & Q] >> R;
+
+name v>>
+P >> R; Q >> R;
+_______________
+[P v Q] >> R;)
+
+(define autofolc
+  {goals --> goals}
+  Goals -> (do (output "Amplification = 0~%")
+               (set *amplification* 0)
+               (outer_loop Goals)))
+
+(define outer_loop
+  {goals --> goals}
+  Goals <- (fail-if (/. X (not (solved? X)))
+                    (try_to_prove (clause_form Goals)))
+  Goals -> (do (output "Amplification = ~A~%"
+                       (set *amplification* (+ 1 (value *amplification*))))
+               (outer_loop Goals)))
+                                                                                                 
+(define try_to_prove
+  {goals --> goals}
+  Goals -> (let SubgoalsList (collect autofol 1 [] (fix v>> Goals))
+                (if (empty? SubgoalsList)
+                    Goals
+                    (inner_loop (head SubgoalsList) (tail SubgoalsList)))))
+
+(define inner_loop
+  {goals --> [goals] --> goals}
+  Goals _ -> Goals              where (solved? Goals)
+  Goals _ <- (fail-if (/. X (not (solved? X))) (try_to_prove Goals))
+  Goals [] -> Goals
+  _ [Goals | Collection] -> (inner_loop Goals Collection))
+
+(define clause_form
+  {goals --> goals}
+  Goals  -> (fix &>> (conjunctive-normal-form (indirect-proof Goals))))
+
+(atp-prompt "autofol: ")
+(atp-credits  "Autofol")
+          

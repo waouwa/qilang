@@ -1,0 +1,15 @@
+(if-without-checking "switch on the typechecker first!~%")
+
+(datatype stream
+
+    X : (A * (A --> A));
+    ====================
+    X : (stream A);)    
+
+(define stream-tail  
+   {(stream A) --> (stream A)}  
+    (@p X F) -> (@p (F X) F))
+
+(define stream-head
+    {(stream A) --> A}
+     (@p X F) -> X)

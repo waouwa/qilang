@@ -1,0 +1,646 @@
+<html xmlns:v="urn:schemas-microsoft-com:vml"
+xmlns:o="urn:schemas-microsoft-com:office:office"
+xmlns:w="urn:schemas-microsoft-com:office:word"
+xmlns="http://www.w3.org/TR/REC-html40">
+
+<head>
+<meta http-equiv=Content-Type content="text/html; charset=iso-8859-1">
+<meta name=ProgId content=Word.Document>
+<meta name=Generator content="Microsoft Word 9">
+<meta name=Originator content="Microsoft Word 9">
+<link rel=File-List href="./chap9_files/filelist.xml">
+<title>9 Writing Good Programs</title>
+<style>
+<!--
+ /* Font Definitions */
+@font-face
+	{font-family:"Microsoft Sans Serif";
+	panose-1:2 11 6 4 2 2 2 2 2 4;
+	mso-font-charset:0;
+	mso-generic-font-family:swiss;
+	mso-font-pitch:variable;
+	mso-font-signature:1627421663 -2147483648 8 0 66047 0;}
+@font-face
+	{font-family:Desdemona;
+	panose-1:4 2 5 5 2 14 3 4 5 4;
+	mso-font-charset:0;
+	mso-generic-font-family:decorative;
+	mso-font-pitch:variable;
+	mso-font-signature:131 0 0 0 9 0;}
+ /* Style Definitions */
+p.MsoNormal, li.MsoNormal, div.MsoNormal
+	{mso-style-parent:"";
+	margin:0in;
+	margin-bottom:.0001pt;
+	mso-pagination:widow-orphan;
+	font-size:10.0pt;
+	font-family:"Times New Roman";
+	mso-fareast-font-family:"Times New Roman";}
+p.MsoTitle, li.MsoTitle, div.MsoTitle
+	{margin:0in;
+	margin-bottom:.0001pt;
+	text-align:center;
+	mso-pagination:widow-orphan;
+	font-size:12.0pt;
+	mso-bidi-font-size:10.0pt;
+	font-family:"Times New Roman";
+	mso-fareast-font-family:"Times New Roman";
+	font-weight:bold;
+	mso-bidi-font-weight:normal;}
+p.MsoBodyText, li.MsoBodyText, div.MsoBodyText
+	{margin-top:0in;
+	margin-right:-.35pt;
+	margin-bottom:0in;
+	margin-left:0in;
+	margin-bottom:.0001pt;
+	text-align:justify;
+	mso-pagination:widow-orphan;
+	font-size:11.0pt;
+	mso-bidi-font-size:10.0pt;
+	font-family:"Times New Roman";
+	mso-fareast-font-family:"Times New Roman";
+	color:black;
+	mso-ansi-language:EN-GB;}
+a:link, span.MsoHyperlink
+	{mso-style-parent:"";
+	color:blue;
+	text-decoration:underline;
+	text-underline:single;}
+a:visited, span.MsoHyperlinkFollowed
+	{color:purple;
+	text-decoration:underline;
+	text-underline:single;}
+@page Section1
+	{size:8.5in 11.0in;
+	margin:1.0in 1.25in 1.0in 1.25in;
+	mso-header-margin:.5in;
+	mso-footer-margin:.5in;
+	mso-paper-source:0;}
+div.Section1
+	{page:Section1;}
+-->
+</style>
+<!--[if gte mso 9]><xml>
+ <o:shapedefaults v:ext="edit" spidmax="1027"/>
+</xml><![endif]--><!--[if gte mso 9]><xml>
+ <o:shapelayout v:ext="edit">
+  <o:idmap v:ext="edit" data="1"/>
+ </o:shapelayout></xml><![endif]--><!--[if gte mso 9]><xml>
+ <u1:DocumentProperties>
+  <u1:Author> </u1:Author>
+  <u1:Template>Normal</u1:Template>
+  <u1:LastAuthor> </u1:LastAuthor>
+  <u1:Revision>1</u1:Revision>
+  <u1:TotalTime>0</u1:TotalTime>
+  <u1:Created>2005-01-15T18:16:00Z</u1:Created>
+  <u1:LastSaved>2005-01-15T18:16:00Z</u1:LastSaved>
+  <u1:Pages>2</u1:Pages>
+  <u1:Words>925</u1:Words>
+  <u1:Characters>5278</u1:Characters>
+  <u1:Company> </u1:Company>
+  <u1:Lines>43</u1:Lines>
+  <u1:Paragraphs>10</u1:Paragraphs>
+  <u1:CharactersWithSpaces>6481</u1:CharactersWithSpaces>
+  <u1:Version>9.2720</u1:Version>
+ </u1:DocumentProperties>
+</xml><![endif]--><!--[if gte mso 9]><xml>
+ <u2:WordDocument>
+  <u2:DisplayHorizontalDrawingGridEvery>0</u2:DisplayHorizontalDrawingGridEvery>
+  <u2:DisplayVerticalDrawingGridEvery>0</u2:DisplayVerticalDrawingGridEvery>
+  <u2:UseMarginsForDrawingGridOrigin/>
+  <u2:Compatibility>
+   <u2:FootnoteLayoutLikeWW8/>
+   <u2:ShapeLayoutLikeWW8/>
+   <u2:AlignTablesRowByRow/>
+   <u2:ForgetLastTabAlignment/>
+   <u2:LayoutRawTableWidth/>
+   <u2:LayoutTableRowsApart/>
+  </u2:Compatibility>
+ </u2:WordDocument>
+</xml><![endif]-->
+</head>
+
+<body bgcolor=silver lang=EN-US link=blue vlink=purple style='tab-interval:
+.5in'>
+
+<div class=Section1>
+
+<div align=center>
+
+<table border=0 cellpadding=0 width="80%" bgcolor=white style='width:80.0%;
+ mso-cellspacing:1.5pt;background:white;mso-padding-alt:75.0pt 75.0pt 75.0pt 75.0pt'>
+ <tr>
+  <td width="100%" style='width:100.0%;padding:75.0pt 75.0pt 75.0pt 75.0pt'>
+  <p class=MsoTitle align=left style='margin-left:1.0in;text-align:left'><span
+  style='font-size:14.0pt;mso-bidi-font-size:10.0pt;font-family:"Microsoft Sans Serif";
+  font-weight:normal;mso-bidi-font-weight:bold'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
+  <div align=center>
+  <table border=0 cellspacing=0 cellpadding=0 width=432 style='width:4.5in;
+   border-collapse:collapse;border:none;mso-border-alt:solid windowtext .5pt;
+   mso-padding-alt:0in 5.4pt 0in 5.4pt'>
+   <tr>
+    <td width=492 valign=top style='width:368.75pt;border:solid windowtext .5pt;
+    padding:0in 5.4pt 0in 5.4pt'>
+    <p class=MsoTitle align=left style='text-align:left'><span
+    style='font-size:14.0pt;mso-bidi-font-size:10.0pt;font-family:"Microsoft Sans Serif";
+    font-weight:normal;mso-bidi-font-weight:bold'><a href="QiPrograms.zip">Download
+    Programs</a> <o:p></o:p></span></p>
+    </td>
+    <td width=492 valign=top style='width:368.75pt;border:solid windowtext .5pt;
+    border-left:none;mso-border-left-alt:solid windowtext .5pt;padding:0in 5.4pt 0in 5.4pt'>
+    <p class=MsoTitle align=left style='text-align:left'><span
+    style='font-size:14.0pt;mso-bidi-font-size:10.0pt;font-family:"Microsoft Sans Serif";
+    font-weight:normal;mso-bidi-font-weight:bold'><a href="contents.htm">Go to
+    Contents Page</a><o:p></o:p></span></p>
+    </td>
+   </tr>
+  </table>
+  </div>
+  <p class=MsoTitle align=left style='margin-left:1.0in;text-align:left'><span
+  style='font-size:14.0pt;mso-bidi-font-size:10.0pt;font-family:"Microsoft Sans Serif";
+  font-weight:normal;mso-bidi-font-weight:bold'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
+  <p class=MsoTitle align=left style='margin-left:1.0in;text-align:left'><span
+  style='font-size:14.0pt;mso-bidi-font-size:10.0pt;font-family:"Microsoft Sans Serif";
+  font-weight:normal;mso-bidi-font-weight:bold'>Note that this HTML page was
+  generated from Word 2000.<span style="mso-spacerun: yes">&nbsp; </span>Some
+  of the code cannot be pasted into Qi. You are advised to download the program
+  files through the above link.<o:p></o:p></span></p>
+  <p class=MsoTitle align=left style='margin-left:1.0in;text-align:left'><span
+  style='font-size:14.0pt;mso-bidi-font-size:10.0pt;font-family:"Microsoft Sans Serif";
+  font-weight:normal;mso-bidi-font-weight:bold'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
+  <div style='border-top:solid windowtext 1.5pt;border-left:none;border-bottom:
+  solid windowtext 1.5pt;border-right:none;padding:1.0pt 0in 1.0pt 0in'>
+  <p class=MsoNormal align=center style='margin-top:0in;margin-right:-.35pt;
+  margin-bottom:0in;margin-left:.5in;margin-bottom:.0001pt;text-align:center;
+  mso-outline-level:1;border:none;mso-border-top-alt:solid windowtext 1.5pt;
+  mso-border-bottom-alt:solid windowtext 1.5pt;padding:0in;mso-padding-alt:
+  1.0pt 0in 1.0pt 0in'><b><span lang=EN-GB style='font-size:72.0pt;mso-bidi-font-size:
+  10.0pt;font-family:Desdemona;mso-ansi-language:EN-GB'>9</span></b><b><span
+  lang=EN-GB style='font-size:72.0pt;mso-bidi-font-size:10.0pt;font-family:
+  "Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman";mso-ansi-language:
+  EN-GB'> </span></b><b><sup><span lang=EN-GB style='font-size:48.0pt;
+  mso-bidi-font-size:10.0pt;font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>Writing Good Programs<u3:p></u3:p></span></sup></b></p>
+  </div>
+  <p class=MsoNormal align=center style='margin-top:0in;margin-right:-.35pt;
+  margin-bottom:0in;margin-left:.5in;margin-bottom:.0001pt;text-align:center'><b><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>&nbsp;<u3:p></u3:p></span></b></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><b><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>&nbsp;<u3:p></u3:p></span></b></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>The previous chapter covered the
+  last elements of what may be called the <i>core</i> Qi language.<span
+  style="mso-spacerun: yes">&nbsp; </span>Core Qi is a very powerful
+  programming language and it is possible to write a great number of good and
+  useful programs in it. Many textbooks say little about how to write good
+  programs, preferring to teach by example, rather than through precept.<span
+  style="mso-spacerun: yes">&nbsp;&nbsp; </span>But because we have now covered
+  enough to know how powerful and elegant functional programming can be, it is
+  worth pausing to try and distil what we have learnt about how to write
+  functional programs. <span style="mso-spacerun: yes">&nbsp;</span><u3:p></u3:p></span></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>&nbsp;<u3:p></u3:p></span></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>First it must be said that
+  functional programming is a <i>craft.<span style="mso-spacerun: yes">&nbsp;
+  </span></i>Like any craft, it takes practice and practice is the best
+  teacher. The more exercises you do, the better you become, and hopefully you
+  should outgrow the exercises in this book, and go on to pursue ideas of your
+  own.<span style="mso-spacerun: yes">&nbsp; </span>In course of working on
+  programs, you will develop an intuitive appreciation of how to tackle
+  problems and, with luck, you will become a craftsman.<span
+  style="mso-spacerun: yes">&nbsp; </span>Here are 9 precepts, designed to help
+  you improve your technique, which tell you what to aim at and what to avoid.<u3:p></u3:p></span></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>&nbsp;<u3:p></u3:p></span></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify;mso-outline-level:
+  1'><span lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>1. <i>Employ top down programming
+  methodology to tackle difficult problems. <u3:p></u3:p></i></span></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><i><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>&nbsp;<u3:p></u3:p></span></i></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>Most significant programming tasks
+  are too difficult for you to know exactly how they are to be solved.<span
+  style="mso-spacerun: yes">&nbsp; </span>Functional programmers respond by a
+  top down methodology, whereby the top level</span><!--[if supportFields]><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'><span style='mso-element:field-begin'></span></span><span
+  style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman"'>
+  XE &quot;</span><span lang=EN-GB style='font-family:"Microsoft Sans Serif";
+  mso-bidi-font-family:"Times New Roman";mso-ansi-language:EN-GB'>top level</span><span
+  style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman"'>&quot;
+  </span><![endif]--><!--[if supportFields]><span lang=EN-GB style='font-family:
+  "Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman";mso-ansi-language:
+  EN-GB'><span style='mso-element:field-end'></span></span><![endif]--><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'><span style="mso-spacerun:
+  yes">&nbsp;</span>functions of the program are coded first, then the
+  functions immediately below the top level, and so on down to the system functions</span><!--[if supportFields]><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'><span style='mso-element:field-begin'></span></span><span
+  style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman"'>
+  XE &quot;</span><b style='mso-bidi-font-weight:normal'><span lang=EN-GB
+  style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman";
+  mso-ansi-language:EN-GB'>system functions</span></b><span style='font-family:
+  "Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman"'>&quot; </span><![endif]--><!--[if supportFields]><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'><span style='mso-element:field-end'></span></span><![endif]--><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>. At each step they postpone the
+  consideration of exactly how the given functions they cite in a definition
+  are themselves implemented until they come to define them. Use the same
+  technique and don&#8217;t be afraid of being banal. For example, suppose you are
+  given the task of getting a computer to make a move in chess and you have
+  decided to employ some method whereby the computer generates a list</span><!--[if supportFields]><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'><span style='mso-element:field-begin'></span></span><span
+  style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman"'>
+  XE &quot;</span><span lang=EN-GB style='font-family:"Microsoft Sans Serif";
+  mso-bidi-font-family:"Times New Roman";mso-ansi-language:EN-GB'>list</span><span
+  style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman"'>&quot;
+  </span><![endif]--><!--[if supportFields]><span lang=EN-GB style='font-family:
+  "Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman";mso-ansi-language:
+  EN-GB'><span style='mso-element:field-end'></span></span><![endif]--><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'><span style="mso-spacerun:
+  yes">&nbsp;</span>of likely moves and analyses them. However you are still a little
+  hazy about how the best moves are selected. No matter; you can make an
+  appropriate beginning by writing.<u3:p></u3:p></span></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>&nbsp;<u3:p></u3:p></span></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><b><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>(define play-move <span
+  style="mso-spacerun: yes">&nbsp;</span><u3:p></u3:p></span></b></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><b><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'><span style="mso-spacerun:
+  yes">&nbsp;&nbsp; </span>Position -&gt; (select-best-move
+  (generate-likely-moves Position)))<u3:p></u3:p></span></b></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify;mso-outline-level:
+  1'><span lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>&nbsp;<u3:p></u3:p></span></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify;mso-outline-level:
+  1'><span lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>2. <i>Make a program clear before
+  you try to make it efficient.</i> <span style="mso-spacerun:
+  yes">&nbsp;</span><u3:p></u3:p></span></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>&nbsp;<u3:p></u3:p></span></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>Inexperienced programmers are
+  sometimes tempted into trying to optimise before they have fully understood
+  what they are doing. Even if the program then works, the programmer is not
+  quite sure what is going on, and debugging the program becomes very
+  difficult. Aim to be clear initially and forget about being clever until
+  later. Often clear programs tend to be efficient anyway.<u3:p></u3:p></span></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>&nbsp;<u3:p></u3:p></span></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify;mso-outline-level:
+  1'><i><span lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>3. Get used to throwing away code.
+  <span style="mso-spacerun: yes">&nbsp;</span><u3:p></u3:p></span></i></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><i><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>&nbsp;<u3:p></u3:p></span></i></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>Declarative programmers talk about
+  <b>throwaway designs</b></span><!--[if supportFields]><b style='mso-bidi-font-weight:
+  normal'><span lang=EN-GB style='font-family:"Microsoft Sans Serif";
+  mso-bidi-font-family:"Times New Roman";mso-ansi-language:EN-GB'><span
+  style='mso-element:field-begin'></span></span></b><span style='font-family:
+  "Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman"'> XE &quot;</span><b
+  style='mso-bidi-font-weight:normal'><span lang=EN-GB style='font-family:"Microsoft Sans Serif";
+  mso-bidi-font-family:"Times New Roman";mso-ansi-language:EN-GB'>throw-away
+  design</span></b><span style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman"'>&quot; </span><![endif]--><!--[if supportFields]><b
+  style='mso-bidi-font-weight:normal'><span lang=EN-GB style='font-family:"Microsoft Sans Serif";
+  mso-bidi-font-family:"Times New Roman";mso-ansi-language:EN-GB'><span
+  style='mso-element:field-end'></span></span></b><![endif]--><b
+  style='mso-bidi-font-weight:normal'><span lang=EN-GB style='font-family:"Microsoft Sans Serif";
+  mso-bidi-font-family:"Times New Roman";mso-ansi-language:EN-GB'><span
+  style='mso-bidi-font-weight:bold'><span style="mso-spacerun:
+  yes">&nbsp;</span></span></span></b><span lang=EN-GB style='font-family:"Microsoft Sans Serif";
+  mso-bidi-font-family:"Times New Roman";mso-ansi-language:EN-GB'>- programs
+  that are written in order to help the understanding, but which are thrown
+  away and replaced by something better once that understanding has been
+  achieved. Don&#8217;t be afraid to throw things away instead of patching them up.<u3:p></u3:p></span></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><i><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>&nbsp;<u3:p></u3:p></span></i></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify;mso-outline-level:
+  1'><i><span lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>4. Use significant variable and
+  function names. <u3:p></u3:p></span></i></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><i><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>&nbsp;<u3:p></u3:p></span></i></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>If a variable is supposed to stand
+  for a list</span><!--[if supportFields]><span lang=EN-GB style='font-family:
+  "Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman";mso-ansi-language:
+  EN-GB'><span style='mso-element:field-begin'></span></span><span
+  style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman"'>
+  XE &quot;</span><span lang=EN-GB style='font-family:"Microsoft Sans Serif";
+  mso-bidi-font-family:"Times New Roman";mso-ansi-language:EN-GB'>list</span><span
+  style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman"'>&quot;
+  </span><![endif]--><!--[if supportFields]><span lang=EN-GB style='font-family:
+  "Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman";mso-ansi-language:
+  EN-GB'><span style='mso-element:field-end'></span></span><![endif]--><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'><span style="mso-spacerun:
+  yes">&nbsp;</span>of towns, then use <b>Towns</b> rather than <b>X</b>.
+  Similarly if a function is supposed to sort towns by pop</span><!--[if supportFields]><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'><span style='mso-element:field-begin'></span></span><span
+  style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman"'>
+  XE &quot;</span><span lang=EN-GB style='font-family:"Microsoft Sans Serif";
+  mso-bidi-font-family:"Times New Roman";mso-ansi-language:EN-GB'>pop</span><span
+  style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman"'>&quot;
+  </span><![endif]--><!--[if supportFields]><span lang=EN-GB style='font-family:
+  "Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman";mso-ansi-language:
+  EN-GB'><span style='mso-element:field-end'></span></span><![endif]--><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>ulation call it <b>sort-by-population</b>
+  rather than <b>sbp</b>. You may think you know what <b>sbp </b>means now, but
+  returning after 3 weeks holiday it may mean nothing to you. Suitable variable
+  and function names remove the need to attach copious comments.<u3:p></u3:p></span></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>&nbsp;<u3:p></u3:p></span></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify;mso-outline-level:
+  1'><i><span lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>5. Look for a common pattern in
+  different processes, and try to capture it with higher-order</span></i><!--[if supportFields]><i
+  style='mso-bidi-font-style:normal'><span lang=EN-GB style='font-family:"Microsoft Sans Serif";
+  mso-bidi-font-family:"Times New Roman";mso-ansi-language:EN-GB'><span
+  style='mso-element:field-begin'></span></span></i><span style='font-family:
+  "Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman"'> XE &quot;</span><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>higher-order</span><span
+  style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman"'>&quot;
+  </span><![endif]--><!--[if supportFields]><i style='mso-bidi-font-style:normal'><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'><span style='mso-element:field-end'></span></span></i><![endif]--><i
+  style='mso-bidi-font-style:normal'><span lang=EN-GB style='font-family:"Microsoft Sans Serif";
+  mso-bidi-font-family:"Times New Roman";mso-ansi-language:EN-GB'><span
+  style='mso-bidi-font-style:italic'><span style="mso-spacerun:
+  yes">&nbsp;</span>functions. <u3:p></u3:p></span></span></i></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><i><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>&nbsp;<u3:p></u3:p></span></i></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>We covered this in the chapter on
+  higher-order</span><!--[if supportFields]><span lang=EN-GB style='font-family:
+  "Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman";mso-ansi-language:
+  EN-GB'><span style='mso-element:field-begin'></span></span><span
+  style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman"'>
+  XE &quot;</span><span lang=EN-GB style='font-family:"Microsoft Sans Serif";
+  mso-bidi-font-family:"Times New Roman";mso-ansi-language:EN-GB'>higher-order</span><span
+  style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman"'>&quot;
+  </span><![endif]--><!--[if supportFields]><span lang=EN-GB style='font-family:
+  "Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman";mso-ansi-language:
+  EN-GB'><span style='mso-element:field-end'></span></span><![endif]--><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'><span style="mso-spacerun:
+  yes">&nbsp;</span>programming</span><!--[if supportFields]><span lang=EN-GB
+  style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman";
+  mso-ansi-language:EN-GB'><span style='mso-element:field-begin'></span></span><span
+  style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman"'>
+  XE &quot;</span><b style='mso-bidi-font-weight:normal'><span lang=EN-GB
+  style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman";
+  mso-ansi-language:EN-GB'>higher-order programming</span></b><span
+  style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman"'>&quot;
+  </span><![endif]--><!--[if supportFields]><span lang=EN-GB style='font-family:
+  "Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman";mso-ansi-language:
+  EN-GB'><span style='mso-element:field-end'></span></span><![endif]--><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>. Acquire the habit of looking for
+  common patterns in diverse processes and of using higher-order functions to
+  capture these patterns. Apart from being an excellent mental training,
+  forming this habit will lead you to simpler and often faster programs.<u3:p></u3:p></span></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>&nbsp;<u3:p></u3:p></span></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify;mso-outline-level:
+  1'><i><span lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>6. If a procedure is used more
+  than once, then it should be defined within its own function. <u3:p></u3:p></span></i></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>&nbsp;<u3:p></u3:p></span></p>
+  <p class=MsoBodyText style='margin-left:.5in'><span lang=EN-GB
+  style='font-size:10.0pt;font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman"'>If there is a procedure, which is called again and again
+  within your program, hive it off into a separate function and give it a name.
+  Not only does this lead to a shorter program, since you can just invoke the
+  procedure through the name of the function instead of typing in the whole
+  procedure, but also the program becomes easier to maintain.<span
+  style="mso-spacerun: yes">&nbsp;&nbsp; </span>If the procedure has to be
+  changed, then only its definition need be altered, rather than everywhere it
+  is called. <span style="mso-spacerun: yes">&nbsp;</span><u3:p></u3:p></span></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify;mso-outline-level:
+  1'><i><span lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>&nbsp;<u3:p></u3:p></span></i></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify;mso-outline-level:
+  1'><i><span lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>7. Avoid writing large function
+  definitions. <span style="mso-spacerun: yes">&nbsp;</span><u3:p></u3:p></span></i></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><i><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>&nbsp;<u3:p></u3:p></span></i></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>Students who have attained some
+  experience in functional programming, but are not yet expert, often write
+  large unwieldy functions into which a large amount of activity is squeezed.
+  Keep functions small. It is better to have a lot of short simple functions
+  than a few large complex ones.<u3:p></u3:p></span></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>&nbsp;<u3:p></u3:p></span></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify;mso-outline-level:
+  1'><i><span lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>8. Try to avoid using assignment</span></i><!--[if supportFields]><i
+  style='mso-bidi-font-style:normal'><span lang=EN-GB style='font-family:"Microsoft Sans Serif";
+  mso-bidi-font-family:"Times New Roman";mso-ansi-language:EN-GB'><span
+  style='mso-element:field-begin'></span></span></i><span style='font-family:
+  "Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman"'> XE &quot;</span><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>assignment</span><span
+  style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman"'>&quot;
+  </span><![endif]--><!--[if supportFields]><i style='mso-bidi-font-style:normal'><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'><span style='mso-element:field-end'></span></span></i><![endif]--><i
+  style='mso-bidi-font-style:normal'><span lang=EN-GB style='font-family:"Microsoft Sans Serif";
+  mso-bidi-font-family:"Times New Roman";mso-ansi-language:EN-GB'><span
+  style='mso-bidi-font-style:italic'>s to hold information unless the
+  information is of a permanent non-changing kind. <span style="mso-spacerun:
+  yes">&nbsp;</span><u3:p></u3:p></span></span></i></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><i><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>&nbsp;<u3:p></u3:p></span></i></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>A source of &#8220;spaghetti code&#8221;,
+  where the thread of control is lost, is due to assignment</span><!--[if supportFields]><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'><span style='mso-element:field-begin'></span></span><span
+  style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman"'>
+  XE &quot;</span><span lang=EN-GB style='font-family:"Microsoft Sans Serif";
+  mso-bidi-font-family:"Times New Roman";mso-ansi-language:EN-GB'>assignment</span><span
+  style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman"'>&quot;
+  </span><![endif]--><!--[if supportFields]><span lang=EN-GB style='font-family:
+  "Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman";mso-ansi-language:
+  EN-GB'><span style='mso-element:field-end'></span></span><![endif]--><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>s over-playing their role. Ideally
+  global</span><!--[if supportFields]><span lang=EN-GB style='font-family:"Microsoft Sans Serif";
+  mso-bidi-font-family:"Times New Roman";mso-ansi-language:EN-GB'><span
+  style='mso-element:field-begin'></span></span><span style='font-family:"Microsoft Sans Serif";
+  mso-bidi-font-family:"Times New Roman"'> XE &quot;</span><b style='mso-bidi-font-weight:
+  normal'><span lang=EN-GB style='font-family:"Microsoft Sans Serif";
+  mso-bidi-font-family:"Times New Roman";mso-ansi-language:EN-GB'>global</span></b><span
+  style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman"'>&quot;
+  </span><![endif]--><!--[if supportFields]><span lang=EN-GB style='font-family:
+  "Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman";mso-ansi-language:
+  EN-GB'><span style='mso-element:field-end'></span></span><![endif]--><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'><span style="mso-spacerun:
+  yes">&nbsp;</span>values should be used to represent information which
+  remains almost unchanged throughout the execution of program.<span
+  style="mso-spacerun: yes">&nbsp; </span>In this role, they reduce the need to
+  create extra inputs to functions, since a function can consult the global
+  value</span><!--[if supportFields]><span lang=EN-GB style='font-family:"Microsoft Sans Serif";
+  mso-bidi-font-family:"Times New Roman";mso-ansi-language:EN-GB'><span
+  style='mso-element:field-begin'></span></span><span style='font-family:"Microsoft Sans Serif";
+  mso-bidi-font-family:"Times New Roman"'> XE &quot;</span><b style='mso-bidi-font-weight:
+  normal'><span lang=EN-GB style='font-family:"Microsoft Sans Serif";
+  mso-bidi-font-family:"Times New Roman";mso-ansi-language:EN-GB'>value</span></b><span
+  style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman"'>&quot;
+  \b </span><![endif]--><!--[if supportFields]><span lang=EN-GB
+  style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman";
+  mso-ansi-language:EN-GB'><span style='mso-element:field-end'></span></span><![endif]--><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'><span style="mso-spacerun:
+  yes">&nbsp;</span>if it needs to access this information. However, if a
+  global value changes throughout a program, then the program is in danger of
+  being a &#8220;spaghetti program</span><!--[if supportFields]><span lang=EN-GB
+  style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman";
+  mso-ansi-language:EN-GB'><span style='mso-element:field-begin'></span></span><span
+  style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman"'>
+  XE &quot;</span><span lang=EN-GB style='font-family:"Microsoft Sans Serif";
+  mso-bidi-font-family:"Times New Roman";mso-ansi-language:EN-GB'>spaghetti
+  program</span><span style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman"'>&quot; </span><![endif]--><!--[if supportFields]><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'><span style='mso-element:field-end'></span></span><![endif]--><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>&#8221;. It is very difficult to correct
+  mistakes in the program since the source of the error involving the global
+  value cannot be easily localised.<u3:p></u3:p></span></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>&nbsp;<u3:p></u3:p></span></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><i><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>9 . If you find yourself feeling
+  discouraged, tired or annoyed then don&#8217;t continue to hack away at your
+  program. Give it up and do something else and return to it later. <span
+  style="mso-spacerun: yes">&nbsp;</span><u3:p></u3:p></span></i></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><i><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>&nbsp;<u3:p></u3:p></span></i></p>
+  <p class=MsoNormal style='margin-top:0in;margin-right:-.35pt;margin-bottom:
+  0in;margin-left:.5in;margin-bottom:.0001pt;text-align:justify'><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>Writers of computer science texts
+  often neglect the truism that programming is a human activity and that human
+  beings get upset. Being upset and writing good code just do not go together.
+  Anything you do while you tired or unsettled is liable at best to be
+  worthless and at worst to be counterproduct</span><!--[if supportFields]><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'><span style='mso-element:field-begin'></span></span><span
+  style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman"'>
+  XE &quot;</span><b style='mso-bidi-font-weight:normal'><span lang=EN-GB
+  style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:"Times New Roman";
+  mso-ansi-language:EN-GB'>product</span></b><span style='font-family:"Microsoft Sans Serif";
+  mso-bidi-font-family:"Times New Roman"'>&quot; </span><![endif]--><!--[if supportFields]><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'><span style='mso-element:field-end'></span></span><![endif]--><span
+  lang=EN-GB style='font-family:"Microsoft Sans Serif";mso-bidi-font-family:
+  "Times New Roman";mso-ansi-language:EN-GB'>ive.<span style="mso-spacerun:
+  yes">&nbsp; </span>Most experienced programmers can recall making mistakes
+  when feeling like this (a favourite is deleting some vital file). Save your
+  work, log off, and walk away.<u3:p></u3:p></span></p>
+  <p class=MsoNormal>&nbsp;<u3:p></u3:p></p>
+  </td>
+ </tr>
+</table>
+
+</div>
+
+<p class=MsoNormal><span style='font-size:12.0pt'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
+
+</div>
+
+</body>
+
+</html>

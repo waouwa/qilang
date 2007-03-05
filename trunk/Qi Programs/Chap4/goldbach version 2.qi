@@ -1,0 +1,43 @@
+(define goldbachs-conjecture
+  \begin with 4 and the list of primes < 4\
+  start -> (goldbachs-conjecture1 4 [3 2]))
+
+(define goldbachs-conjecture1
+  \If N is not the sum of two primes < N, return N\
+  N Primes -> N      where (not (sum-of-two? Primes N))
+  \else add 2 to N, and if N+1 is prime
+  add N+1 to the list of primes < N and recurse
+  else simply add 2 to N and recurse\
+  N Primes -> (if (prime? (+ 1 N))
+                  (goldbachs-conjecture1 (+ N 2) [(+ 1 N) | Primes])
+                  (goldbachs-conjecture1 (+ N 2) Primes)))
+
+(define sum-of-two?
+  \No primes left? Then return false\
+  [ ] _ -> false
+  \If the first prime x summed with any other prime = N? return true\
+  [X | Primes] N  -> true   where (x+prime=n X [X | Primes] N)
+  \No? then recurse.\
+  [_ | Primes] N -> (sum-of-two? Primes N))
+
+(define x+prime=n
+  \no primes left, return false\
+  _ [ ] _ -> false
+  \X + the first prime = N?, so return true\
+  X [Prime | _] N -> (do (output "~A is the sum of ~A and ~A~%" N Prime X)
+                         true)  where (= (+ X Prime) N)
+  \recurse and try the other primes\
+  X [_ | Primes] N -> (x+prime=n X Primes N))
+
+(define prime? 
+  X -> (prime* X (sqrt X) 2))
+
+(define prime*
+  X Max Div -> false	where (integer? (/ X Div))				
+  X Max Div -> true	where (> Div Max)			
+  X Max Div -> (prime* X Max (+ 1 Div)))
+
+ 
+
+
+

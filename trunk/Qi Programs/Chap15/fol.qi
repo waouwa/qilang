@@ -1,0 +1,225 @@
+(if-without-checking "switch on the typechecker first!~%")
+
+(datatype wff
+
+   if (not (constant? P))
+   P : symbol;
+   _________
+   P : wff;
+
+   F : predicate; X : [term];
+   ____________________
+   [F  X] : wff;
+
+    F : predicate,  X : [term] >> P;
+   ________________________
+   (predicate? F) : verified,  [F X] : wff >> P;
+ 
+   F : symbol >> P;
+   _____________
+   [F X] : wff >> P;
+
+   P : wff;
+   =========
+   [~ P] : wff;
+
+   if (element? C [v & => <=>])
+   P : wff; Q : wff;
+   =================
+   [P C Q] : wff;
+
+   if (element? Q [all some])
+   V : variable; X : wff;
+   ================
+   [Q V X] : wff;)
+
+(datatype predicate
+
+  if (not (constant? X))
+  X : symbol;
+  ___________
+  X : predicate;)
+
+(datatype variable
+
+  if (not (constant? X))
+  X : symbol;
+  ___________
+  X : variable;
+
+  X : symbol >> P;
+ ______________
+  X : variable >> P;)
+
+(datatype functor
+
+  if (not (constant? X))
+  X : symbol;
+  ___________
+  X : functor;)
+
+(datatype term
+ 
+  F : functor; Terms : [term];
+  ========================
+  [F | Terms] : term;
+
+  Terms : number;
+  _________
+  Terms : term;
+
+  Terms : symbol;
+  _________
+  Terms : term; )
+
+(datatype globals
+
+___________________________
+(value *amplification*) : number;)
+
+(define constant?
+  {A --> boolean}
+  X -> (member? X [v ~ => <=> & all some]))
+
+(define predicate?
+   {A --> boolean}
+   F -> false	where (member? F [~ v => <=> & all some])
+   F -> (symbol? F))
+  
+(define member?
+   {A --> [B] --> boolean}
+     _ [] -> false
+     X [Y | _] -> true	  where (== X Y)
+     X [_ | Z] -> (member? X Z))
+
+(synonyms
+    note (term * term)
+    parameter term)
+
+(define replace_by
+  {term --> term --> wff --> wff}
+  V1 _ [all V1 P] -> [all V1 P]
+  V1 _ [some V1 P] -> [some V1 P]
+  V1 V2 [all X Y] -> [all X (replace_by V1 V2 Y)]
+  V1 V2 [some X Y] -> [some X (replace_by V1 V2 Y)]
+  V1 V2 [P v Q] -> [(replace_by V1 V2 P) v (replace_by V1 V2 Q)]
+  V1 V2 [P & Q] -> [(replace_by V1 V2 P) & (replace_by V1 V2 Q)]
+  V1 V2 [P => Q] -> [(replace_by V1 V2 P) => (replace_by V1 V2 Q)]
+  V1 V2 [P <=> Q] -> [(replace_by V1 V2 P) <=> (replace_by V1 V2 Q)]
+  V1 V2 [~ P] -> [~ (replace_by V1 V2 P)]
+  V1 V2 [F Terms]
+  ->  [F (map (/. Term (replace_by* V1 V2 Term)) Terms)]	where (predicate? F)
+  _ _ P -> P)
+
+(define replace_by*
+  {term --> term --> term --> term}
+  V1 V2 V1 -> V2
+  V1 V2 [Func | Terms]
+  -> [Func | (map (/. Term (replace_by* V1 V2 Term)) Terms)]
+  _ _ Term -> Term)
+
+
+
+(theory fol
+
+name indirect-proof
+[~ P] >> P;
+___________
+P;
+
+name raa
+______________
+[~ P], P >> Q;
+
+name &>>
+P, Q >> R;
+________
+[P & Q] >> R;
+
+name v>>
+P >> R; Q >> R;
+_______________
+[P v Q] >> R;
+
+name =>>>
+[[~ P] v Q] >> R;
+________________
+[P => Q] >> R;
+
+name <=>>>
+[[P => Q] & [Q => P]] >> R;
+__________________________
+[P <=> Q] >> R;
+
+name ~~>>
+P >> Q;
+_______________
+[~ [~ P]] >> Q;
+
+name ~&>>
+[[~ P] v [~ Q]] >> R;
+____________________
+[~ [P & Q]] >> R;
+
+name ~v>>
+[[~ P] & [~ Q]] >> R;
+____________________
+[~ [P v Q]] >> R;
+
+name ~=>>>
+[P & [~ Q]] >> R;
+________________
+[~ [P => Q]] >> R;
+
+name ~<=>>>
+[[~ [P => Q]] v [~ [Q => P]]] >> R;
+___________________________________
+[~ [P <=> Q]] >> R;
+
+name ~some
+[all X [~ Y]] >> P;
+___________________
+[~ [some X Y]] >> P;
+
+name ~all
+[some X [~ Y]] >> P;
+____________________
+[~ [all X Y]] >> P;
+
+name some>>
+let FTerm/X (replace_by X (gensym "term") Fx)
+FTerm/X >> P;
+_______________
+[some X Fx] >> P;
+
+name (all>> 1)
+let FTerm/X (replace_by X (head Parameters) Fx)
+FTerm/X, [all X Fx] >> P;
+____________________
+[all X Fx] >> P;)
+
+(define replace_by
+  {term --> term --> wff --> wff}
+  V1 _ [all V1 P] -> [all V1 P]
+  V1 _ [some V1 P] -> [some V1 P]
+  V1 V2 [all X Y] -> [all X (replace_by V1 V2 Y)]
+  V1 V2 [some X Y] -> [some X (replace_by V1 V2 Y)]
+  V1 V2 [P v Q] -> [(replace_by V1 V2 P) v (replace_by V1 V2 Q)]
+  V1 V2 [P & Q] -> [(replace_by V1 V2 P) & (replace_by V1 V2 Q)]
+  V1 V2 [P => Q] -> [(replace_by V1 V2 P) => (replace_by V1 V2 Q)]
+  V1 V2 [P <=> Q] -> [(replace_by V1 V2 P) <=> (replace_by V1 V2 Q)]
+  V1 V2 [~ P] -> [~ (replace_by V1 V2 P)]
+  V1 V2 [F Terms]
+  ->  [F (map (/. Term (replace_by* V1 V2 Term)) Terms)]	where (predicate? F)
+  _ _ P -> P)
+
+(define replace_by*
+  {term --> term --> term --> term}
+  V1 V2 V1 -> V2
+  V1 V2 [Func | Terms]
+  -> [Func | (map (/. Term (replace_by* V1 V2 Term)) Terms)]
+  _ _ Term -> Term)
+
+
+(atp-prompt "FOL: ")
+(atp-credits "FOL:")  

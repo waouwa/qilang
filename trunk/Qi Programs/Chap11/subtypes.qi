@@ -1,0 +1,27 @@
+(datatype natnum
+
+if (integer? X) 
+if (> X –1)
+___________________
+X : natnum;
+
+X : natnum;
+_____________
+(+ X 1) : natnum;
+
+(not (= X 0)) : verified; X : natnum;
+_____________
+(- X 1) : natnum;)
+
+(define plus
+  {natnum --> natnum --> natnum}
+   0 X -> X
+   X Y -> (plus (- X 1) (+ Y 1) )	where (not (= X 0))	)
+
+(datatype subtype
+
+ (subtype B A); X : B;
+ ________________ 
+  X : A;
+_____________________
+(subtype natnum number);	)

@@ -1,0 +1,85 @@
+(if-without-checking "switch on the typechecker first!~%")
+
+(datatype wff
+
+      if (and (symbol? X) (not (constant? X)))
+      __________
+      X : wff;
+
+      X : wff;
+      ============
+      [~ X] : wff;
+
+      if (element? C [=> v & <=>])
+      X : wff;
+      Y : wff;
+      ==============
+      [X C Y] : wff;)
+
+(define constant?
+  {symbol --> boolean}
+  X -> (element? X [~ v & => <=>]))
+
+(theory prop
+
+name indirect-proof
+[~ P] >> P;
+___________
+P;
+
+name raa
+______________
+[~ P], P >> Q;
+
+name &>>
+P, Q >> R;
+________
+[P & Q] >> R;
+
+name v>>
+P >> R; Q >> R;
+_______________
+[P v Q] >> R;
+
+name =>>>
+[[~ P] v Q] >> R;
+________________
+[P => Q] >> R;
+
+name <=>>>
+[[P => Q] & [Q => P]] >> R;
+__________________________
+[P <=> Q] >> R;
+
+name ~~>>
+P >> Q;
+_______________
+[~ [~ P]] >> Q;
+
+name ~&>>
+[[~ P] v [~ Q]] >> R;
+____________________
+[~ [P & Q]] >> R;
+
+name ~v>>
+[[~ P] & [~ Q]] >> R;
+____________________
+[~ [P v Q]] >> R;
+
+name ~=>>>
+[P & [~ Q]] >> R;
+________________
+[~ [P => Q]] >> R;
+
+name ~<=>>>
+[[~ [P => Q]] v [~ [Q => P]]] >> R;
+___________________________________
+[~ [P <=> Q]] >> R;)
+
+(define pc_decision_procedure
+ {goals --> goals}
+ Goals -> (fix pc-solve (indirect-proof Goals)))
+
+(define pc-solve
+  {goals --> goals}
+  Goals -> (v>> (&>> (=>>> (<=>>> (~~>> (~v>> (~&>> (~=>>> (~<=>>> (raa Goals)))))))))))

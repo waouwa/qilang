@@ -1,0 +1,69 @@
+(theory tt0
+
+  name hyp
+  ______
+  P >> P;  
+
+  name app
+  let A (choose_a_type X)
+  [X : [A --> B]];
+  [Y : A];
+  _________
+  [[X Y] : B];
+
+  name abs
+  [X : A] >> [Y : B];
+  __________________
+  [[/. X Y] : [A --> B]];)
+
+(theory tt0
+
+  name hyp
+  ______
+  P >> P;  
+
+  name app
+  let A (choose_a_type X)
+  [X : [A --> B]];
+  [Y : A];
+  [Z = [X Y]];
+  _________
+  [Z : B];
+
+  name abs
+  [X : A] >> [Y : B];
+  __________________
+  [[/. X Y] : [A --> B]];)
+
+(define choose_a_type
+   {lambda_expr --> type}
+     X -> (do (output "Choose a type for ~A: " X) (input+ : type)))
+
+(datatype wff
+
+  P : lambda_expr; A : type;
+  ====================
+  [P : A] : wff;
+
+  X : symbol;
+  __________
+  X : lambda_expr;
+
+  X : lambda_expr; Y : lambda_expr;
+  ===========================
+  [X Y] : lambda_expr;
+
+  X : symbol; Y : lambda_expr;
+  ======================
+  [/. X Y] : lambda_expr;
+
+  A : symbol;
+  _________
+  A : type;
+
+  A : type; B : type;
+  ==============
+  [A --> B] : type;)
+
+
+

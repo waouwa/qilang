@@ -1,0 +1,4292 @@
+\
+"*****************************************************************************
+ *    (C) Copyright Mark Tarver, 2000-2007, Lambda Associates      *
+ *						*
+ *	Qi 7.1 Qi Source Code 		       	*
+ *						*
+ * This software is made available under the Qi Licence AS IS,  	*
+ * and the author makes no warranty about the software, its   	*
+ * performance or its conformity to any specification.	       	*
+ *                                                              			*	    			
+ * Further details about this program can be found in 		*
+ * www.lambdassociates.org.				*
+ ***************************************************************************** \
+
+\-----------------------COMPILER FOR QI FUNCTIONS ---------------------------\
+
+\Author: Mark Tarver
+ Date: 27th December, 2006
+ Platform: CMU Lisp 19c, CLisp 2.39 - Linux compatible for Clisp
+ Package: qi \
+
+\Declare Qi is case sensitive.\
+(SETF (READTABLE-CASE *READTABLE*) :PRESERVE)
+
+\Make semi-colon a normal character.\
+(SET-SYNTAX-FROM-CHAR #\; #\v)
+
+\No waffle from the CMU or CLisp compiler.   Speed max, safety min because Qi has a type checker.\
+(DEFUN waffle-off ()
+   #+CLISP (PROGN (PROCLAIM '(OPTIMIZE (SPEED 3) (SAFETY 0)))
+                                       (SETQ SYSTEM::*COMPILE-WARNINGS* NIL) 
+                                       (SETQ *COMPILE-VERBOSE* NIL))
+   #+CMU (PROGN (SETQ *COMPILE-PRINT* NIL) 
+                                     (PROCLAIM '(OPTIMIZE (SPEED 3) (SAFETY 0) (EXTENSIONS::INHIBIT-WARNINGS 3)))
+                                     (SETQ EXTENSIONS::*GC-VERBOSE* NIL))
+   #-(OR CLISP CMU)  (ERROR "Unknown platform to Qi: ~A" (LISP-IMPLEMENTATION-TYPE)))
+
+(waffle-off)
+
+\Platform specific.\
+(DEFUN fix-closures ()
+      #+CMU   (SETQ *closures* '(FUNCTION COMPILED-FUNCTION EVAL::INTERPRETED-FUNCTION))
+      #+CLISP  (SETQ *closures* '(FUNCTION COMPILED-FUNCTION))
+     #-(OR CLISP CMU) (ERROR "Qi does not recognise this platform ~A" (LISP-IMPLEMENTATION-TYPE)))
+
+(fix-closures)
+
+\Toplevel Qi routine for defining new Qi functions.\
+(DEFMACRO define (&REST X) 
+  `(COMPILE (EVAL (compile '<qi_compile> (remove-escape (QUOTE ,X))))))
+
+(DEFUN remove-escape (Code) (SUBST '*qi-failure-object* #\Escape Code))
+
+(DEFVAR *qi-failure-object* #\Escape)
+
+\Qi-YACC specification for toplevel.\
+ 
+(defcc <qi_compile>
+\Has the function got a type signature <ftype> in it?\
+ <name>  <signature>  <rules> 
+        \Check for free variables, issue warning if found.\
+  := (do (check_variable_occurrences <rules>) 
+            \If type checking is switched on\
+ 	 (if (value *tc*) 
+                 \'Curry' the type (so A --> B --> C) becomes (A --> (B --> C))\
+ 	     (let Type (curry_type <signature>)
+                 \Try to type check the function using procedure T*;
+                   See Functional Programming in Qi - chapter 13\
+  	      (let Typecheck 
+	           (procedure_T* <name> 
+              	                   <rules> 
+              	                  (specialise_type Type Type) 
+                                          1)
+                  \If the type checker returns 'false' then raise a type error\
+              	   (if (== Typecheck false)
+		       (error "type error in ~A" <name>)
+                  \Otherwise record the type of the function\
+ 		       (record_type <name> Type))))
+                  \Default; no type checking?, just return ok\
+		ok)
+         \Now compile the function to machine code\
+        (compile_to_machine_code <name> <rules>));
+ <name> <rules> 
+  \The function has no type signature\
+  \Check for free variables, issue warning if found.\
+ := (do (check_variable_occurrences <rules>) 
+    \Is type checking called for?\
+        (if (value *tc*)
+     \If yes, the user has forgotten to supply a type\
+            (error "~A has not been given a type.~%" <name>)
+     \If no, compile the function to machine code\
+            (compile_to_machine_code <name> <rules>)));
+ <name> := (error "Syntax error in ~A.~%" <name>);)
+
+\HERE BEGINNETH T*.\
+
+\Procedure T* - type check each rule of the function.\
+(define procedure_T*
+  Name [] Type _ -> true
+  Name [Rule | Rules] Type N
+  -> (and (type_rule? Name Rule Type N) (procedure_T* Name Rules Type (+ 1 N))))
+
+\Procedural implementation of Rule of Generalisation
+in Chapter 13 of Functional Programming in Qi; prove
+object is polymorphic by replacing the type variables
+by arbitrary lowercase symbols.\
+(define specialise_type
+  [] Type -> Type
+  [A | As] Type -> (specialise_type As (subst (gensym "type") A Type))  	where (variable? A)
+  [A | As] Type -> (specialise_type (append A As) Type) 		where (cons? A)
+  [_ | As] Type -> (specialise_type As Type))
+
+\Procedure T* - check that integrity and correctness are met.\
+(define type_rule?
+  Name [Patterns Arrow Action] Type N
+  -> (and (integrity? Name Patterns Type 1 N) 
+             (correct? Name Patterns Arrow Action Type N)))
+
+\Integrity check. Name is the name of the function; Patterns are the patterns;
+ [A --> B] is the type; M is the Mth pattern and N is the Nth rule of the host function.\
+(define integrity?
+\No patterns left to check - then the patterns have type integrity. Return true back to type_rule?.\
+  Name [] _ M N -> true
+\Is the pattern simply a variable; since the compilation process
+ has made it left linear, it must have type integrity, so skip.\
+  Name [Pattern | Patterns] [A --> B] M N
+  -> (integrity? Name Patterns B (+ M 1) N) where (variable? Pattern)
+\Nitty gritty, do the integerity check.\
+  Name [Pattern | Patterns] [A --> B] M N
+  -> (if (= (typechecks? (build_patt_env (extract_vars Pattern)) (stvars Pattern) A) false)
+\If it fails the integrity check, raise the usual type error.\ 
+         (raise_type_failure Name M N)
+\Passed the test? Good.  Now check the other patterns.\
+         (integrity? Name Patterns B (+ M 1) N))
+\Catch all, if we cannot perform the integrity check, then raise an arity type error.\
+  Name _ _ _ N -> (raise_type_failure Name arity N))
+
+\Build a type environment for integrity testing the patterns.\
+(define build_patt_env
+  [] -> []
+  [V | Vs] -> [[(concat && V) : (gensym "A")] | (build_patt_env Vs)])
+
+(define raise_type_failure
+  \Default case, cite function, rule and pattern where the integrity check failed.\
+  Name M N 
+  -> (error "Integrity Check Failure; pattern ~A of rule ~A of ~A~%" M N Name)	
+         where (number? M)
+  \The types and the patterns do not match; the integrity test cannot be made; so tell the user.\
+  Name arity N -> (error "Integrity Check Failure: patterns and types in rule ~A of ~A~% do not correspond.~%" N Name)
+  \Guard is not type secure.\
+  Name guard N -> (error "Match/guard failure in rule ~A of ~A.~%" N Name)
+  \Type correctness failure.\
+  Name result N -> (error "Correctness Check Failure: rule ~A of ~A~%" N Name))
+
+\Rename the variables to placeholders, so P becomes &&P.\
+(define stvars
+  X -> (concat && X)	where (variable? X)
+  [X | Y] -> (MAPCAR stvars [X | Y])
+  X -> X)
+ 
+\Correctness check\
+(define correct?
+  Name Patterns Arrow Action Type N
+   \Begin by building an environment made of the patterns.\
+  -> (let Env (build_action_env (stvars Patterns) Type [])
+      \Procedurally emulate the Y-combinator rule, check if
+       the function is cited in its own definition and add the
+       typing Name : Type to the type environment if it is; 
+       if not, leave well alone.\
+       (let Assumptions (stvars (if (occurs? Name Action) 
+                                           [[Name : Type] | (fst Env)] 
+                                           (fst Env)))
+        \Execute the correctness check\
+         (let Atype (snd Env)  
+           (execute_correctness_proof Name Assumptions 
+               (stvars_action Patterns (pback Arrow Action)) Atype N)))))
+
+\Replace the bound variables in the action by placeholders, so P becomes &&P.
+ Skip locally bound variables in let and /. \
+(define stvars_action 
+  Patterns X -> (concat && X) 	where (and (variable? X) (occurs? X Patterns))
+  Patterns [let X Y Z] -> [let X (stvars_action Patterns Y) 
+                             (subst X (concat && X) (stvars_action Patterns Z))]
+  Patterns [/. X Y] -> [/. X (subst X (concat && X) (stvars_action Patterns Y))]
+  Patterns [X | Y] -> (MAPCAR (/. Z (stvars_action Patterns Z)) [X | Y])
+  _ X -> X)
+
+\Process the action part of the rule.\
+(define pback
+  \Is the rule straightforward?  No backtracking using <-. \
+  Arrow Action -> Action where (= Arrow ->)
+  \OK, the arrow is <-, backtracking is being used.
+   So we use the equivalences from chapter 7 of Functional Programming in Qi.\
+  \<- + guard + fail-if\
+  Arrow [where P [fail-if F X]] -> [where [and P [not [F X]]] X]
+  \<- + guard\
+  Arrow [where P X] -> [where [and P [not [= X #\Escape]]] X] 
+  \<- + fail-if\
+  Arrow [fail-if F X] -> [where [not [F X]] X]
+  \<- on its own\
+  Arrow X -> [where [not [= #\Escape X]] X])
+ 
+(define execute_correctness_proof
+  \Has it got a guard? OK; it has\
+   Name Assumptions [where Guard Action] Type N
+   -> \Type check the guard\
+       (if (= (typechecks? Assumptions Guard boolean) false)
+        \If it fails, raise a type error.\
+           (raise_type_failure Name guard N)        
+        \Else type check the action. Don't forget to append the verification conditions
+         that come from the guard.\  
+           (if (= (typechecks? (append (verification_conditions Guard) Assumptions)
+                                         Action 
+                                         Type) 
+                       false)
+         \Failed?  Tough, raise an error.\
+              (raise_type_failure Name result N)
+         \Succeeded, return true back to type_rule?.\
+               true))
+  \No guard?, then just a simple correctness proof.\
+   Name Assumptions Action Type N
+   -> (if (= (typechecks? Assumptions Action Type) false)
+               (raise_type_failure Name result N)
+               true))
+
+\Append verification conditions, treat [and P Q] : verified as a conjunction; P : verified, Q : verified;\
+(define verification_conditions
+  [and P Q] -> (append (verification_conditions P) (verification_conditions Q))
+  P -> [[(cons->@c (curry P)) : verified]])
+
+\Build the type environment for type checking the action, by pairing off patterns and types.\
+(define build_action_env
+ [] Type Assumptions -> (@p Assumptions Type)
+ [Pattern | Patterns] [A --> B] Assumptions
+ -> (build_action_env Patterns B [[(cons->@c Pattern) : A] | Assumptions]))
+
+\Curry typing; get rid of weird type constructions like (cons A NIL)
+ generated by the Qi reader in favour of (list A) and make A --> B --> C
+ come out as A --> (B --> C) and (A * B * C) as (A * (B * C)).\
+(define curry_type
+  [A * B * | C] -> (curry_type [A * [B * | C]])
+  [A --> B --> | C] -> (curry_type [A --> [B --> | C]])
+  [cons A B] -> [list (curry_type A) | (curry_type B)]
+  [X | Y] -> (MAPCAR curry_type [X | Y])
+  X -> X) 
+
+\HERE ENDETH T*.\
+
+\THIS PART OF THE PROGRAM IS CONDUCTED BY QI-YACC - PARSES THE QI FUNCTION DEFINITION.\
+
+\Check if the functor is legitimate.  Lowercase name that is not a system function.\
+(defcc <name>
+  -*- := (if (and (symbol? -*-) (and (not (sysfunc? -*-)) (not (variable? -*-)))) 
+            \Remember the name of the function being compiled.\
+             (set *currfunc* -*-) 
+             (error "~A is not a legimate functor." -*-)))
+
+\A system function is one that crops up in the list held in *sysfuncs*. \
+(define sysfunc?
+  F -> (if  (element? F (value *sysfuncs*)) 
+            (error "~A is a system function and may not be redefined." F)
+            false))
+
+\The set of Qi system functions.  All these are imported from the Qi package into Common Lisp.\
+(DEFVAR *sysfuncs*
+ '(<e> abstype and append apply assoc atp-credits atp-prompt back
+   boolean? cd character? collect compile complex? concat congruent? cons? cons
+   datatype debug define defcc defprolog delete-file destroy difference display-mode do dump
+   dump-proof element? empty? error eval explode fail-if fix float? from-goals
+   fst fst-ass fst-conc system fst-goal gensym get-array get-lambda get-prop get-rule head
+   if if-with-checking if-without-checking input input+ integer? inferences length let lineread list load 
+   make-array make-string map maxinferences mlet new-assoc-type newfuntype not notes-in nth number?
+   occurs-check occurrences or output prf profile profile-results prooftool provable?
+   put-array put-prop quit random rational? read-char read-file-as-charlist read-file
+   read-chars-as-stringlist real? refine remove reverse rotate round save set snd
+   solved? specialise spy sqrt step string? structure subst swap symbol?
+   synonyms tail tc theory theory-size thin thm-intro time time-proof to-goals
+   track tuple? undebug unprf union unprofile untrack value
+   unspecialise variable? write-to-file y-or-n? qi_> qi_< qi_>= qi_<= qi_= + *
+   / /. - qi_= == @c @p preclude include preclude-all-but include-all-but
+
+   when* eval* eval!* when!* suppose* ask =* is* is!* return* bind* fail*
+   ==* =!* typecheck* call*))
+
+\Search for the type specification. If } is not found an error is raised.\  
+(defcc <signature>
+  { <signature-help> } := <signature-help>;)
+
+(defcc <signature-help> 
+  -*- <signature-help> := (if (element? -*- [{ }]) 
+                                     #\Escape
+                                     [-*- |  <signature-help>]);
+ <e> := [];)
+    
+\1 or more rules must be in a definition.\
+(defcc <rules>
+  <rule> <rules> := [<rule> | <rules>];
+  <rule> := [<rule>];)
+
+\0 or more patterns followed by an arrow followed by an action constitutes a rule.
+ Rules are left-linearised and choicepoints are marked.\
+\0 or more patterns followed by an arrow followed by an action consitutes a rule.
+ Rules are left-linearised and choicepoints are marked.\
+(defcc <rule>
+  <patterns> <arrow> <action> where <guard> 
+  := (left_linearise [<patterns> <arrow> [where <guard> <action>]]);
+  <patterns> <arrow> <action> 
+   := (left_linearise [<patterns> <arrow> <action>]);
+  <arrow> <action> where <guard> 
+   := [[] <arrow> [where <guard> <action>]];
+  <arrow> <action> := [[] <arrow> <action>];)
+
+(defcc <arrow>
+  -> := ->;
+  <- := <-;)
+
+\Patterns are a series of elements, each one is a pattern.\
+(defcc <patterns>
+  <pattern> <patterns> := [<pattern> | <patterns>];
+  <e> := [];)
+
+\A pattern is a list of patterns constructed using only cons, list 
+ or a tuple of patterns or a simple pattern.\
+(defcc <pattern>
+  [@p <pattern1> <pattern2>] := @p <pattern1> <pattern2>;
+  [cons <pattern1> <pattern2>] := cons <pattern1> <pattern2>;
+  [list <patterns>] := (cons_form (cons listit <patterns>));
+  -*- := (if (cons? -*-) 
+             (ERROR "~A is not a legitimate constructor~%" -*-) 
+              #\Escape);
+  <simple_pattern> := <simple_pattern>;)
+
+ \A simple pattern is an atom, if it is an underscore, then a new variable is generated.\
+(defcc <simple_pattern>
+  _ := (gensym "X");
+  -*- := (if (element? -*- [-> <-]) #\Escape -*-);)
+
+(defcc <pattern1>
+  <pattern> := <pattern>;)
+
+(defcc <pattern2>
+  <pattern> := <pattern>;)
+
+\An action is whatever element follows an arrow.\
+(defcc <action>
+  -*- := -*-;)
+
+\A guard is whatever element follows where.\
+(defcc <guard>
+  -*- := -*-;)
+
+\Definition of Qi value function.\
+(DEFUN value (X) (SYMBOL-VALUE X))
+
+\Recognisor for escape character.\
+(define escape?
+  #\Escape -> true
+  _ -> false)
+
+\Left linearise the rule.\
+(define left_linearise
+  Rule -> (fix left_linearise* Rule))
+
+\Fixpoint functions.\
+(define fix
+  F X -> (fix* F X (F X)))
+
+(define fix*
+  _ X X -> X
+  F _ X -> (fix* F X (F X)))
+
+\Find repeated variables and replace them by fresh variables, putting the equality test into a guard. 
+ This is applied to a fixpoint in case a variable occurs > 2 times.\
+(define left_linearise*
+ [Patterns Arrow [where Guard Result]] ->
+  (let V (rpted_v Patterns)
+      (if (= V false)
+          [Patterns Arrow [where Guard Result]]
+          (let X (gensym "X")
+            [(left_linearise_v V X Patterns) Arrow 
+[where [and [= X V] Guard] Result]]))) 
+ [Patterns Arrow Result] ->
+  (let V (rpted_v Patterns)
+      (if (= V false)
+          [Patterns Arrow Result]
+          (let X (gensym "X")
+            [(left_linearise_v V X Patterns) Arrow [where [= X V] Result]]))))
+
+\Find repeated variables by flattening the patterns and looking in the flat list.\
+(define rpted_v
+  Patterns -> (rpted_v* (flatten Patterns)))
+
+\Flattens a list.\
+(define flatten
+  [] -> []
+  [[X | Y] | Z] -> (flatten (append [X | Y] Z))
+  [X | Y] -> [X | (flatten Y)])
+
+\Returns false if there are no repeated variables else returns the list of repeated variables.\
+(define rpted_v*
+  [] -> false	
+  [X | Y] -> X 	where (and (variable? X) (element? X Y))
+  [_ | Y] -> (rpted_v* Y))
+
+\Replaces a repeated variable by a fresh variable.\
+(define left_linearise_v
+  V X V -> X
+  V X [Y | Z] -> (let LL (left_linearise_v V X Y)
+                   (if (= LL Y)
+                       [LL | (left_linearise_v V X Z)]
+                       [LL | Z]))
+  _ _ X -> X)
+
+(SETQ *userdefs* NIL)
+
+\Reduces parsed Qi function to machine code.\
+(define compile_to_machine_code
+  Name Rules -> (do (PUSHNEW Name (value *userdefs*))
+                          (compile_to_lisp 
+                                (put-prop Name lambda (compile_to_lambda 
+                                      (compile_to_lambda+ Name Rules))))))
+
+\Check for free variables and issue warnings.\
+(define check_variable_occurrences
+  [] -> []
+  [Rule | Rules] -> (do (check_variable_occurrence Rule) (check_variable_occurrences Rules)))
+
+\Find free variables by comparing the free variables in the Patterns and the Action.
+ If the latter is not a subset of the former, then return a warning.\
+(define check_variable_occurrence
+  [Patterns _ Action] 
+   -> (let Free (difference (extract_free_vars Action) 
+                            (extract_free_vars Patterns))
+         (if (empty? Free) 
+             ok 
+             (warn (FORMAT NIL 
+                "the following variables are free in ~A:~{ ~A;~}~%" 
+                   (value *currfunc*) Free))))) 
+
+(define extract_free_vars
+  X -> (extract_free_vars* [] X []))
+
+\Maintain a list of bound variables and free variables. A variable is free if not bound.\
+(define extract_free_vars*
+  Bound X Free -> (union [X] Free) 	where (and (variable? X) (not (element? X Bound)))
+  Bound [let X Y Z] Free -> (union (extract_free_vars* Bound Y Free) 
+                                             (extract_free_vars* [X | Bound] Z Free))  
+  Bound [/. X Y] Free -> (extract_free_vars* [X | Bound] Y Free) 
+  Bound [X | Y] Free -> (union (extract_free_vars* Bound X Free) 
+                                        (extract_free_vars* Bound Y Free))
+  _ _ Free -> Free)
+
+(DEFUN union (x y) (UNION x y :TEST 'ABSEQUAL))
+
+\Qi equality - works with tuples too.\
+(DEFUN ABSEQUAL (X Y) 
+  (COND ((EQUAL X Y) 'true)
+        ((AND (TUPLE-P X) (TUPLE-P Y)) 
+         (AND (ABSEQUAL (fst X) (fst Y)) (ABSEQUAL (snd X) (snd Y))))
+        (T NIL)))
+
+\Declare a tuple as a structure, built using @p with selectors fst and snd.\
+(DEFSTRUCT (TUPLE
+            (:PRINT-FUNCTION (LAMBDA (Struct Stream Depth)
+                     (DECLARE (IGNORE Depth))
+                     (print_tuple Struct Stream)))
+           (:CONC-NAME NIL)
+  (:CONSTRUCTOR @p (fst snd)))
+  fst snd)
+
+\How to print a tuple.\
+(DEFUN print_tuple (Tuple Stream)
+  (FORMAT Stream "(@p ~S ~S)" (fst Tuple) (snd Tuple)))
+
+\Tuple recognisor.\
+(DEFUN tuple? (X)
+  (IF (TUPLE-P X) 'true 'false))
+
+\Compile to lambda+. Place Y combinator, parameterise recursive function calls, 
+ place rules within cases, and put the cases within an abstraction.\
+(define compile_to_lambda+
+  Name Rules 
+   -> (put-prop Name lambda+
+        (let NewRules (MAPCAR check_choicepoint Rules)
+          (let Vs (reverse (mkVs (arity Name NewRules))) 
+             (let Body [cases | (compile_to_lambda+_rules Vs NewRules)]
+ 			  [y-combinator [/. Name (bld_abs Vs Body)]])))))
+
+(define get-lambda
+   Name -> (get-prop Name lambda+ []))
+
+\If the arrow indicates a choicepoint, use set to prevent repeated evaluation; 
+ (note: this is safe because the value stored by set is later PROG bound).\
+(define check_choicepoint
+  [Patterns Arrow Action] -> [Patterns Action]	where (= Arrow ->)
+  [Patterns Arrow [where Guard Action]] 
+   -> (let V (gensym "choicepoint")
+        [Patterns [where [and Guard [not [escape? [set V Action]]]] [value V]]])
+  [Patterns Arrow Action] 
+   -> (let V (gensym "choicepoint") 
+         [Patterns [where [not [escape? [set V Action]]] [value V]]]))
+
+\Builds an abstraction given the gensymed variables.\
+(define bld_abs
+  [] Abs -> Abs
+  [V | Vs] Abs -> (bld_abs Vs [/. V Abs]))
+
+\Generate formal parameters of the function based on its arity.\
+(define mkVs
+  0 -> []
+  N -> [(gensym "V") | (mkVs (- N 1))])
+
+\Calculate the arity; if there is a discrepancy, signal an arity error.\
+(define arity
+  _ [Rule] -> (arity_rule Rule)
+  Name [Rule1 Rule2 | Rules] 
+ -> (let Arity1 (arity_rule Rule1)
+  	(let Arity2 (arity_rule Rule2)
+		(if (= Arity1 Arity2)
+           	                (arity Name [Rule2 | Rules])
+                            (error "arity error in ~A~%" Name)))))
+
+\The arity of a rule is given by the number of patterns in it.\
+(define arity_rule
+  [Patterns Action] -> (length Patterns)) 
+
+\Compile each rule to lambda+.\                  
+(define compile_to_lambda+_rules
+  _ [] -> []
+  Vs [[Pattern Action] | Rules] 
+   -> [(compile_to_lambda+_rule (reverse Vs) (reverse Pattern) Action)
+       | (compile_to_lambda+_rules Vs Rules)])
+
+\Turn the patterns into a big abstraction and then build the whole into 
+ an application by applying the abstraction to the formal parameters to produce the action.\
+(define compile_to_lambda+_rule
+  Vs [] Action -> (bld_app Vs Action)
+  Vs [Pattern | Patterns] Action 
+  -> (compile_to_lambda+_rule Vs Patterns [/. Pattern Action]))
+
+\Builds an application.\
+ (define bld_app
+  [] App -> App
+  [V | Vs] Abs -> (bld_app Vs [Abs V]))
+
+\Reduce lambda+ to lambda calculus.\
+(define compile_to_lambda
+  [y-combinator Abs] -> [y-combinator (compile_combinator_body Abs)])
+
+\Compile the body of the Y-combinator.\
+(define compile_combinator_body 
+  [/. X Y] -> [/. X (compile_combinator_body Y)]
+  [cases | Cases] -> [cases | (beta_reduce Cases)])
+
+\Apply extended beta reduction to each of the cases.\
+(define beta_reduce
+  [] -> []
+  [Case | Cases] -> [(beta_reduce* [] Case) | (beta_reduce Cases)])
+
+\Extended beta reduction.\
+(define beta_reduce*
+  Test [where P Q] -> (beta_reduce* (append Test [P]) Q)
+  Test [[/. [cons X Y] Z] A] 
+  -> (let NewZ (substf A [cons X Y] Z) 
+       (let NewTest (append Test [[cons? A]]) 
+         (beta_reduce* NewTest [[[/. X [/. Y NewZ]] [CAR A]] [CDR A]])))                   
+  Test [[/. [@p X Y] Z] A] 
+  -> (let NewZ (substf A [@p X Y] Z) 
+       (let NewTest (append Test [[tuple? A]]) 
+         (beta_reduce* NewTest 
+ 				[[[/. X [/. Y NewZ]] [fst A]] [snd A]])))
+  Test [[/. X Y] A] -> (beta_reduce* Test (substf A X Y)) where (variable? X)
+  Test [[/. X Y] A] -> (beta_reduce* (append Test [[= X A]]) Y) 
+where (or (atom? X) (empty? X))
+  Test [X Y] -> (let Pair (beta_reduce* Test X)
+                  (let X* (head (tail Pair))
+                    (let Test* (head Pair)      
+             		(if (= X* X) [Test [X Y]]
+                            (beta_reduce* Test* [X* Y])))))
+  Test X -> [Test X])
+
+(define substf
+  X Y Y -> X
+  X Y [/. W Z] -> [/. W Z]	where (occurs? Y W)
+  X Y [let Y W Z] -> [let Y (substf X Y W) Z]
+  X Y [W | Z] -> (map (/. Z (substf X Y Z)) [W | Z])  
+  _ _ Z -> Z)
+    
+\atom? is ATOMP (basically).\
+(define atom?
+  X -> (or (or (string? X) (symbol? X))
+           (or (number? X) (or (boolean? X) (character? X)))))
+
+\Reduce lambda calculus to Lisp.\
+(define compile_to_lisp
+  [y-combinator [/. Name Abs]] 
+  -> (let Params (params Abs)
+       (record_source
+         [DEFUN Name Params 
+          (insert_type_declarations 
+            (find_and_bind_choicepoints
+             (optimise_lisp
+             [COND | (insert_errmess Name (lisp_body Params (body Abs)))])])))))
+
+\Detect and locally bind choicepoints\
+(define find_and_bind_choicepoints
+  Code -> (bind_choicepoints (find_choicepoints Code) Code))
+
+(define find_choicepoints
+  [Set Var Choicepoint] -> [Var]	where (and (= Set SETQ) (choicepoint? Var))
+  [X | Y] -> (union (find_choicepoints X) (find_choicepoints Y))
+  _ -> [])
+
+(define bind_choicepoints
+   [] Code -> Code
+   Vars Code -> [PROG Vars [RETURN Code]])
+
+(define choicepoint? 
+   X -> (let Chars (coerce X) (check_choicepoint? Chars)) 	where (symbol? X)
+   _ -> false)
+
+(DEFUN coerce (X) (COERCE (FORMAT NIL "~S" X) 'LIST))
+
+(define check_choicepoint?
+  [#\c #\h #\o #\i #\c #\e #\p #\o #\i #\n #\t | _] -> true
+  _ -> false)
+
+\Record the source code for the trace package.\
+(define record_source
+  [DEFUN F Params | Code] -> (do \Record the arity of the function.\
+                                            (store_arity F (length Params))
+                                            \Dump code to file if needed.\
+                                            (if (dumped?) 
+                                                (write-to-dump-file [DEFUN F Params | Code]) 
+                                                ok)
+                                            \Record the source.\
+                                            (put-prop F source_code [DEFUN F Params | Code]))) 
+
+\Test for dumping.\
+(define dumped?
+  -> (= (BOUNDP *dump-file*) T))
+
+\Dump code to file.\
+(define write-to-dump-file
+   Code ->  (write-to-file (value *dump-file*) Code) )
+                   
+\Get the type of the output of the current function and insert type declarations. \
+(define insert_type_declarations
+  [F | X] -> (let Type (get_result_type F) 
+          		(if (empty? Type)
+             	    [F | (MAPCAR insert_type_declarations X)]
+              	    [THE Type [F | (MAPCAR insert_type_declarations X)]]))
+  X -> X)
+
+\Get the type of the output of the current function.\
+(define get_result_type
+  F -> (let Type (get_type_of_func F)
+         (if (empty? Type) Type (result_type Type)))	where (symbol? F)
+  _ -> [])
+
+\Get the type of a function.\
+(DEFUN get_type_of_func (F)
+  (LET ((Code (GETHASH F *sfht* NIL)))
+    (IF (NULL Code) NIL (normalise_type (FUNCALL Code))))) 
+
+\Get the type of the output from the type of a function\
+(define result_type
+  [A --> B] -> (assoctype B)	where (symbol? B)
+  [A --> [list B]] -> LIST 	where (symbol? B)
+  [A --> B] -> (result_type B)
+  _ -> [])
+
+\Get the Lisp type from the Qi Type.\
+(define assoctype
+  Type -> (let Lisptype (ASSOC Type (value *assoctypes*))
+            (if (empty? Lisptype) Lisptype (head (tail Lisptype))))) 
+
+\Make association between Qi type and Lisp type.\
+(DEFUN new-assoc-type (X Y) (PUSHNEW  (LIST X Y) *assoctypes*) 'associated)
+
+\Association list of Qi and Lisp types. \
+(DEFVAR *assoctypes* 
+  '((string STRING) (character CHARACTER) (symbol SYMBOL)
+   (boolean SYMBOL) (number NUMBER) (goals LIST)))   
+
+\Optimise the Lisp code.\
+(define optimise_lisp
+  [Cond [Test Result]] -> (optimise_lisp Result) 	where (and (= COND Cond)(= Test T))
+  [Cond | Pairs] -> [Cond | (MAPCAR optimise_lisp (MAPCAR optimise_car/cdr Pairs))]
+		where (= Cond COND)	
+  [set [Quote Var] Val] -> [SETQ Var (optimise_lisp Val)]		
+						where (= Quote QUOTE)
+  [map F X] -> [MAPCAR F (optimise_lisp X)]	where (simple_map? F)
+  [Let [] X] -> (optimise_lisp X)	where (= Let LET*)
+  [value [Quote Symbol]] -> Symbol 	where (and (= Quote QUOTE) (symbol? Symbol))
+  [wrapper [qi_= [] Y]] -> [NULL (optimise_lisp Y)]
+  [wrapper [qi_= [Quote Symbol] Y]] -> [EQ [Quote Symbol] (optimise_lisp Y)]
+					where (and (= Quote QUOTE) 
+                                                                           (or (symbol? Symbol) 
+                                                                                (boolean? Symbol)))
+  [wrapper [qi_= X Y]] -> [EQUAL X (optimise_lisp Y)] where (or (number? X) (string? X))  		
+  [wrapper [qi_= X Y]] -> [EQ X (optimise_lisp Y)] where (character? X)                                     
+  [input+ : Type] -> [input+ : Type] 
+  [list | X] -> [LIST | (MAPCAR optimise_lisp X)]
+  [cons X Y] -> [CONS (optimise_lisp X) (optimise_lisp Y)]
+  [reverse X] -> [REVERSE (optimise_lisp X)]
+  [append X Y] -> [APPEND (optimise_lisp X) (optimise_lisp Y)]
+  [wrapper [not [escape? [SET Choice [fail-if [Quote F] X]]]]]
+      -> [NOT [EQ [QUOTE true] (optimise_lisp [F [SET Choice X]])]]
+			where (and (= Quote QUOTE) (symbol? F))
+  [if X Y Z] -> [IF [EQ [QUOTE true] (optimise_lisp X)] 
+         		(optimise_lisp Y) 
+         		(optimise_lisp Z)]
+  [X | Y] -> (MAPCAR optimise_lisp [X | Y])
+  X -> X)
+
+(define simple_map?
+   [Quote F] -> true	where (and (= Quote QUOTE) (= (arityf F) 1))
+   _ -> false)
+
+\Optimises CARs and CDRs\
+(define optimise_car/cdr 
+  [Test Result] -> [Test (occ* Result)])
+
+(define isocar/cdrs
+  \Find the CARs and CDRs in a function call.\
+  [Car X] -> [[Car X]]	where (and (= Car CAR) (symbol? X))
+  [Cdr X] -> [[Cdr X]]	where (and (= Cdr CDR) (symbol? X))
+  [X | Y] -> (append (isocar/cdrs X) (isocar/cdrs Y))
+  _ -> [])
+
+\Locally bind repeated CARs and CDRs in the Result.\
+(define optimise_car/cdr 
+  [Test Result] -> [Test (occ* Result)])
+
+(define occ*
+  Result -> (occ** [] (isocar/cdrs Result) Result unoptimised))
+
+(define occ**
+  \Nothing has been optimised and nothing to bind? Return the result unchanged.\
+  [] Result [] unoptimised -> Result
+  \Nothing has been optimised and something to bind? Make the bindings in reverse order
+   and return the result.\
+  Local [] Result unoptimised -> [LET* (reverse Local) Result]
+  \Optimisations made?  Go round again and see if you can find some more.\
+  Local [] Result optimised -> (occ** Local (isocar/cdrs Result) Result unoptimised)
+  \Look for the first CAR or CDR call; if it is repeated, substitute a variable for
+   it and put the variable in the list of bindings to be made and replace the CAR/CDR call
+   by the variable.  Go round again with the new binding list, noting that you have 
+   made an optimisation.\
+  Local [Car/Cdr | CarsCdrs] Result _
+  -> (let Var (gensym "V")
+          (occ** [[Var Car/Cdr] | Local] 
+                    CarsCdrs 
+                    (subst Var Car/Cdr Result) 
+                    optimised))	  where (> (occurrences Car/Cdr Result) 1)
+  \If the first CAR or CDR call is not repeated; recurse looking at the other CAR/CDR calls.\
+  Local [_ | CarsCdrs] Result Status -> (occ** Local CarsCdrs Result Status))
+
+\Find the number of times X occurs in Y.\
+(define occurrences
+   X X -> 1
+   X [Y | Z] -> (+ (occurrences X Y) (occurrences X Z))
+   _ _ -> 0)
+	
+\Tests a number to see if it is small enough for a EQ test.\
+(define smallnum? 
+  X -> (and (number? X) (> 100 X)))
+
+\Insert the default error message in the code.\  
+(define insert_errmess
+  Name [[Test Result]] 
+  -> (if (= Test T) 
+         [[Test Result]]
+         [[Test Result] [T [f_error [QUOTE Name]]]])
+  Name [Case | Cases] -> [Case | (insert_errmess Name Cases)])  
+
+\Raise a partial function error.\
+(DEFUN f_error (X)
+  (FORMAT T "error: partial function ~A;" X)
+  (IF (AND (COMPILED-FUNCTION-P (SYMBOL-FUNCTION X))
+           (Y-OR-N-P "track ~A ? " X))
+      (track_function (source_code X)))
+  (ERROR ""))
+
+\Form the leading lambda bound variables into the formal paramemter list.\ 
+(define params
+  [/. X Y] -> [X | (params Y)]
+  _ -> [])
+
+\Isolate the body of the lambda function.\
+(define body
+  [/. X Y] -> (body Y)
+  [cases | Y] -> Y)
+
+\Form the body of the lambda function into the body of a Lisp function.\
+(define lisp_body
+  _ [] -> []
+  Params [Case | Cases] 
+  -> [(lisp_case Params Case) | (lisp_body Params Cases)])
+
+\Receive the list of formal parameters and a Tests-Action pair and generate 
+ the Lisp code.\
+(define lisp_case
+  Params [Tests Action] 
+  -> [(lisp_code_tests Params Tests)(lisp_code Params Action)])
+
+\Receive the list of formal parameters and a series of tests and generate the Lisp code.\
+(define lisp_code_tests
+   Params [] -> T
+   Params [Test] -> (lisp_code_test Params Test)
+   Params Tests 
+   -> [AND | (MAPCAR (/. Test (lisp_code_test Params Test)) Tests)])
+
+\Receive the list of formal parameters and a test and generate the Lisp code.\
+(define lisp_code_test
+  Params [cons? X] -> [CONSP (lisp_code Params X)]
+  Params [R X Y] -> [(map_arith R) (lisp_code Params X) (lisp_code Params Y)] where (arith? R)
+  Params X -> [wrapper (lisp_code Params X)])
+
+(define arith? 
+  R -> (element? R (value *arith*)))
+
+(set *arith* [qi_> qi_< qi_>= qi_<=])
+
+(DEFUN map_arith (x)
+  (COND ((EQ x 'qi_>) '>)
+           ((EQ x 'qi_<) '<)
+           ((EQ x 'qi_>=) '>=)
+           ((EQ x 'qi_<=) '<=)))  
+
+\Wrapper function that maps true to T and false to NIL.\
+(DEFUN wrapper (Test)
+  (COND ((EQ Test 'true) T)
+        ((EQ Test 'false) NIL)
+        (T (ERROR "~A is not a boolean.~%" Test))))
+
+\Converts to Lisp code, generating partial applications when needed and inserting QUOTE.\ 
+(define lisp_code
+  \Leave QUOTED Stuff alone\
+  _ [Quote X] -> [Quote X]	where (= QUOTE Quote)
+   \Translate Qi local assignment into a Lisp local assignment.\
+  Params [let X Y Z] -> [LET [[X (lisp_code Params Y)]] (lisp_code [X | Params] Z)]
+  \Translate Qi abstraction into Lisp lambda expression.\
+  Params [/. X Y] -> [FUNCTION [LAMBDA [X] (lisp_code [X | Params] Y)]]
+  \input+ stays the same.\
+  Params [input+ : Type] -> [input+ : Type]
+  \A partial application handled using Qi apply - base case.\
+  Params [F X] -> [apply (lisp_code Params F) (lisp_code Params X)]   
+						      where (partial_application? F [X])
+  \A partial application handled using Qi apply - recursive case.\
+  Params [F X | Y] -> (lisp_code Params [[apply F X] | Y])   where (partial_application? F [X | Y])
+  \The application of the result of a function call - base case.\
+  Params [[X | Y] W] -> (lisp_code Params [apply (lisp_code Params [X | Y]) (lisp_code Params W)])
+  \The application of the result of a function call - recursive case.\
+  Params [[X | Y] W | Z] -> (lisp_code Params [[apply [X | Y] W] | Z])
+  \The application of a bound variable to arguments - base case.\
+  \Params [F X] -> (lisp_code Params [apply F (lisp_code Params X)])   where (element? F Params) \
+  \Above changed in 7.1\
+  Params [F X] -> [apply F (lisp_code [F | Params] X)]   where (element? F Params)
+  \The application of a bound variable to arguments - recursive case.\
+  Params [F X | Y] -> (lisp_code Params [[apply F X] | Y])  where (element? F Params)               
+  \Bog standard application.\
+  Params [F | X] -> [F | (map (/. Z (lisp_code Params Z)) X)]
+  \The following are all self-evaluating.\
+  _ [] -> [] 	
+  _ X -> X					where (number? X) 
+  _ X -> X  					where (string? X)
+  _ X -> X					where (character? X)
+  Params Param -> Param			where (element? Param Params)
+  _ *qi-failure-object* -> *qi-failure-object*
+  \Otherwise quote the object.\
+   _ X -> [QUOTE X])
+
+\Qi eval system function. If the functor is a Lisp macro, just EVAL.  If it is a Qi macro
+ then generate the Lisp code and EVAL.  
+ If it is a plain function of no listed arity (ergo not defined in Qi) then Lisp APPLY it
+ to the list of evaluated arguments.
+ If it is a 1-place function application then Qi apply the function to the evaluated
+ argument.
+ If it is > 1-place then curry and iterate.
+ If it is 0-place, evaluate the functor and FUNCALL it.
+ Else return the input unchanged.\
+(define eval
+  [F | X] -> (EVAL [F | X])			where (lisp-macro? F)
+  [F | X] -> (EVAL (lisp_code [] [F | X]))	where (macro? F)
+  [F | X] -> (APPLY (eval F) (map eval X))	where (and (symbol? F) (empty? (arityf F)))
+  [F X] -> (apply (eval F) (eval X))
+  [F X | Y] -> (eval [[F X] | Y])
+  [F] -> (FUNCALL (eval F))
+  X -> X)
+
+\Lisp macros - with exception of some Qi stuff.\
+(define lisp-macro?
+  F -> true	
+    where (element? F [define defcc datatype abstype 
+                              newfuntype structure synonyms theory])
+  F -> (and (macro? F) (not (element? F (value *sysfuncs*)))))
+
+\Recognises macros.\
+(define macro?
+  F -> (and (symbol? F) (not (empty? (MACRO-FUNCTION F)))))
+
+\Qi apply; if the function is a closure or a full application, just FUNCALL it to its argument.\
+(define apply
+  F X -> (FUNCALL F X)	where (or (full_application? F [X]) (closure? F))
+\If its a partial application, generate a closure and FUNCALL it to the argument.\
+  F X -> (FUNCALL (make-closure F) X) 	where (partial_application? F [X])
+\Otherwise signal an error.\
+  F X -> (error "Odd application; ~A to ~A~%" F X))
+
+\Partial application - the arity is > the number of arguments.\
+(define partial_application?
+   F X -> (and (symbol? F)
+             (let ArityF (arityf F)
+               (if (number? ArityF) 
+                   (check_arityf F ArityF (length X)) 
+                   false))))
+
+(define check_arityf
+  _ N N -> false
+  F Arityf N -> (do (output "~A may not like ~A arguments.~%" F N) false)  	where (> N Arityf)
+  F Arityf N -> true)
+
+(define closure?
+   X -> (element? (TYPE-OF X) (value *closures*)))
+
+\Make a closure by building a list and EVALing it.\
+(define make-closure
+  F -> (EVAL (make_closure* F (arityf F) [])))
+
+\Make a closure.\
+(define make_closure*
+  F 1 Params -> (let X (gensym "X") (/@ X [F | (reverse [X | Params])]))
+  F N Params -> (let X (gensym "X") 
+                      (/@ X (make_closure* F (- N 1) [X | Params]))))
+
+\Closure builder - but not evaluated.\
+(DEFUN /@ (X Body) `(FUNCTION (LAMBDA (,X) ,Body)))
+
+\Closure builder.\
+(DEFMACRO /. (X Body) `(FUNCTION (LAMBDA (,X) ,Body)))
+
+(define full_application?
+  F X -> (and (symbol? F)
+           (let Arity (arityf F)
+             (or (= Arity (length X))
+                 (empty? Arity)))))
+
+\Qi MAPCAR.\
+(define map
+  _ [] -> []
+  F [X | Y] -> [(F X) | (map F Y)]) 
+
+\--------------------------Arities of Qi system functions --------------------------------\
+
+\Retrieve the arity of a function.\
+(DEFUN arityf (FUNC) (GETHASH FUNC *arity* NIL))
+
+\Create the hash table to store arities.\ 
+(DEFVAR *arity*
+ (MAKE-HASH-TABLE :SIZE 300 :REHASH-SIZE 2 :REHASH-THRESHOLD 0.8))
+
+\Initialise the hash table to store arities.\
+(DEFUN initialise_arity_table ()
+(store_arities
+ '(and 2 append 2 apply 2 atp-credits 1 atp-prompt 1 back 2 boolean? 1 cd 1
+   character? 1 compile 2 complex? 1 concat 2 congruent? 2 cons? 1 
+   debug 1 delete-file 1 destroy 1 difference 2 display-mode 1 dump-proof 1 element? 2 empty? 1
+   eval 1 explode 1 fail-if 2 fix 2 float? 1 from-goals 1 fst 1 fst-ass 1
+   fst-conc 1 fst-goal 1 gensym 1 get-array 3 get-lambda 1 get-prop 3 get-rule 2 qi_> 2
+   qi_>= 2 qi_= 2 head 1 if-with-checking 1 if-without-checking 1 integer? 1 inferences 1 length 1 loadurl 1 qi_< 2 qi_<= 2
+   macroexpand 1 make-array 1 map 2 maxinferences 1 new-assoc-type 2 not 1 notes-in 1 nth 2
+   number? 1 occurs-check 1 occurrences 2 or 2 prf 1 print 1 profile 1 profile-results 1 prooftool 1
+   provable? 2 put-array 3 put-prop 3 random 1 rational? 1 read-char 1
+   read-file-as-charlist 1 read-file 1 read-chars-as-stringlist 2 real? 1 refine 4 remove 2
+   reverse 1 rotate 3 round 1 snd 1 solved? 1 specialise 1 spy 1 sqrt 1 step 1
+   string? 1 subst 3 swap 3 symbol? 1 system 1 tail 1 tc 1 theory-size 1 thin 2
+   thm-intro 1 time 1 time-proof 3 to-goals 2 track 1 tuple 2 unprofile 1
+   undebug 1 union 2 unprf 1 unspecialise 1 untrack 1  value 1 variable? 1 write-to-file 2 y-or-n? 1 
+   + 2 * 2 / 2 - 2 == 2 @p 2 preclude 1 include 1 preclude-all-but 1 include-all-but 1)))
+
+\Work down the list storing arities.\
+(define store_arities 
+  [] -> []
+  [F Arity | Rest] -> (do (store_arity F Arity) (store_arities Rest))) 
+
+\Store arity - if arity changed, give warning.\
+(DEFUN store_arity (FUNC N)
+ (LET ((Arity (arityf FUNC)))
+   (IF (AND (NUMBERP Arity) (NOT (= Arity N)))
+       (warn (FORMAT NIL "Changing the arity of ~A may cause errors~%" FUNC)))
+   (SETF (GETHASH FUNC *arity*) N)))
+
+(DEFMACRO do (&REST X) (CONS 'PROGN X))
+
+(initialise_arity_table)
+
+\Create the hash table to store type environment.\
+(DEFVAR *sfht*
+ (MAKE-HASH-TABLE :SIZE 300 :REHASH-SIZE 2 :REHASH-THRESHOLD 0.8))
+
+\---------------------The QI TYPE DISCIPLINE ---------------------------------\
+
+\Initialise the hash table to store type environment.\
+(DEFUN setup-base-types ()
+(setup-sfht
+ '(and (boolean --> (boolean --> boolean)) 
+  append ((list A) --> ((list A) --> (list A))) 
+  apply ((A --> B) --> (A --> B))
+  assoc (A --> ((list (list A)) --> (list A))) 
+  atp-credits (string --> string)
+  atp-prompt (string --> string) 
+  boolean? (A --> boolean) 
+  cd (string --> string) 
+  character? (A --> boolean) 
+  collect (symbol --> (number --> ((list parameter) --> (goals --> (list goals)))))
+  complex? (A --> boolean) 
+  concat (symbol --> (symbol --> symbol)) 
+  congruent? (A --> (A --> boolean)) 
+  cons? (A --> boolean) 
+  debug (A --> string)
+  delete-file (string --> string)
+  difference ((list A) --> ((list A) --> (list A))) 
+  display-mode (symbol --> symbol) 
+  dump-proof (string --> string) 
+  element? (A --> ((list A) --> boolean)) 
+  empty? (A --> boolean) 
+  explode (A --> (list character)) 
+  fail-if ((character --> boolean) --> (character --> character)) 
+  fix ((A --> A) --> (A --> A)) 
+  float? (A --> boolean) 
+  from-goals (goals --> ((list ((list wff) * wff)) * (list note))) 
+  fst ((A * B) --> A)
+  fst-goal (goals --> ((list wff) * wff)) 
+  fst-conc (goals --> wff) 
+  fst-ass (goals --> (list wff)) 
+  gensym (string --> symbol) 
+  get-array ((array A) --> ((list number) --> (A --> A))) 
+  get-lambda ((A --> B) --> unit)
+  get-rule (symbol --> (number --> (goals --> goals))) 
+  head ((list A) --> A) 
+  if-with-checking (string --> symbol)
+  if-without-checking (string --> symbol)
+  inferences (A --> number) 
+  integer? (A --> boolean) 
+  length ((list A) --> number)
+  make-array ((list number) --> (array A)) 
+  maxinferences (number --> number)
+  map ((A --> B) --> ((list A) --> (list B))) 
+  new-assoc-type (symbol --> (symbol --> symbol))
+  not (boolean --> boolean)
+  notes-in (goals --> (list note))
+  nth (number --> ((list A) --> A)) 
+  number? (A --> boolean) 
+  occurs-check (symbol --> boolean)
+  occurrences (A --> (B --> number)) 
+  or (boolean --> (boolean --> boolean)) 
+  prf ((A --> B) --> (A --> B)) 
+  print (A --> A)
+  profile ((A --> B) --> (A --> B)) 
+  profile-results (A --> symbol) 
+  prooftool (symbol --> symbol) 
+  provable? ((goals --> goals) --> ((list ((list wff) * wff)) --> boolean)) 
+  put-array ((array A) --> ((list number) --> (A --> A))) 
+  random (number --> number)
+  rational? (A --> boolean) 
+  read-char (A --> character) 
+  read-file (string --> (list unit))
+  read-file-as-charlist  (string --> (list character)) 
+  read-chars-as-stringlist ((list character) --> ((character --> boolean) --> (list string))) 
+  real? (A --> boolean)
+  refine (symbol --> (number --> ((list parameter) --> (goals --> goals))))
+  remove (A --> ((list A) --> (list A))) 
+  reverse ((list A) --> (list A)) 
+   rotate (number --> (number --> (goals --> goals))) 
+   round (number --> number) 
+   snd ((A * B) --> B) 
+   solved? (goals --> boolean) 
+   specialise (symbol --> symbol)
+   spy (symbol --> boolean) 
+   sqrt (number --> number)    
+   step (symbol --> boolean) 
+   string? (A --> boolean) 
+   swap (number --> (number --> (goals --> goals))) 
+   symbol? (A --> boolean) 
+   tail ((list A) --> (list A)) 
+   tc (symbol --> boolean) 
+   system (string --> string)
+   theory-size (symbol --> number) 
+   thin (number --> (goals --> goals)) 
+   thm-intro (symbol --> symbol) 
+   time (A --> A) 
+   time-proof ((goals --> goals) --> ((list wff) --> (wff --> boolean))) 
+   to-goals ((list ((list wff) * wff)) --> ((list note) --> goals)) 
+   track ((A --> B) --> (A --> B)) 
+   tuple? (A --> boolean) 
+   undebug (A --> string)
+   unprofile ((A --> B) --> (A --> B)) 
+   unspecialise (symbol --> symbol)
+   untrack ((A --> B) --> (A --> B)) 
+   unprf ((A --> B) --> (A --> B)) 
+   union ((list A) --> ((list A) --> (list A))) 
+   variable? (A --> boolean)
+   write-to-file (string --> (A --> string)) 
+   y-or-n? (string --> boolean) 
+   qi_> (number --> (number --> boolean)) 
+   qi_< (number --> (number --> boolean))
+   qi_>= (number --> (number --> boolean)) 
+   qi_<= (number --> (number --> boolean)) 
+   + (number --> (number --> number)) 
+   * (number --> (number --> number)) 
+   - (number --> (number --> number)) 
+   / (number --> (number --> number)) 
+   == (A --> (B --> boolean))	
+    preclude ((list symbol) --> (list symbol))
+    include ((list symbol) --> (list symbol))
+    preclude-all-but ((list symbol) --> (list symbol))
+    include-all-but ((list symbol) --> (list symbol)) )) )
+
+\Add the functors and types pairwise (CAR and CADR) as we work through the list.\
+(DEFUN setup-sfht (L)
+   (IF (NULL L)
+       NIL
+       (PROGN (add-to-type-discipline (CAR L) (CADR L)) (setup-sfht (CDDR L)))))
+
+(DEFMACRO newfuntype (F Type) 
+  `(newfuntype* (QUOTE ,F) (QUOTE ,Type)))
+ 
+(DEFUN newfuntype* (F Type) 
+  (add-to-type-discipline F (curry_type Type)) 
+  F)
+
+\Check if the type is changed - if so, raise error, else add the functor and type\
+(DEFUN record_type (FUNC TYPE)
+  (LET ((OLDTYPE (get_type_of_func FUNC))) 
+       (IF (OR (NULL OLDTYPE) 
+	    (variant? (normalise_type TYPE) 
+                            (normalise_type OLDTYPE)))
+           (add-to-type-discipline FUNC TYPE) 
+           (warn (FORMAT NIL "~A already has a type.~%" FUNC)))))
+
+\Qi Warning\
+(DEFUN warn (String)
+  (COND ((EQ *strong-warning* 'true) (error String))
+           (T (output " =======> Warning: ~A~%" String))))
+
+(set *strong-warning* false)
+
+(DEFUN strong-warning (X)
+  (COND ((EQ X '+) (SETQ *strong-warning* 'true))
+           ((EQ X '-) (SETQ *strong-warning* 'false)) 
+           (T (ERROR "strong-warning expects a + or a -.~%"))))
+
+\Test to see if types are alpha variants.\
+(DEFUN variant? (NEW OLD)
+  (COND ((EQUAL NEW OLD) T)
+        ((EQUAL (CAR OLD) (CAR NEW)) (variant? (CDR OLD) (CDR NEW)))
+        ((AND (EQ 'true (variable? (CAR OLD)))  (EQ 'true (variable? (CAR NEW))))
+         (variant? (SUBST 'a (CAR OLD) (CDR OLD)) (SUBST 'a (CAR NEW) (CDR NEW))))  
+        ((AND (CONSP (CAR OLD)) (CONSP (CAR NEW)))
+         (variant? (APPEND (CAR OLD) (CDR OLD)) (APPEND (CAR NEW) (CDR NEW))))
+	  (T NIL)))
+
+\Variable test.\
+(DEFUN variable? (X)
+  (IF (AND (SYMBOLP X) 
+	   (NOT (NULL X))
+	   (UPPER-CASE-P (CHAR (SYMBOL-NAME X) 0)))
+      'true
+      'false) )
+
+\Add the functor and type - the type is stored as a piece of code that 
+  standardises all polytypes apart.\
+(DEFUN add-to-type-discipline (FUNC TYPE)
+    (SETF (GETHASH FUNC *sfht*)
+              (COMPILE NIL (LIST 'LAMBDA () (st_code TYPE))))) 
+
+\Standardises the type apart by looking for polytypes.\
+(DEFUN st_code (Type)
+  (LET ((Vs (extract_vars Type)))
+       (st_code* Vs (bld_st_code Vs Type))))
+
+\Extracts the polytype variables from the type.\
+(define extract_vars
+  X -> (extract_vars* X []))
+
+(define extract_vars*
+   X Vs -> (union [X] Vs) where (variable? X) 
+   [X | Y] Vs -> (union (extract_vars* X Vs) (extract_vars* Y Vs))
+   _ Vs -> Vs)
+
+\Works through type - if variable encountered then it is left unquoted.
+ If atom is encountered it is quoted.\
+(DEFUN bld_st_code (Vs Type)
+  (COND ((NULL Type) NIL)
+        ((CONSP Type)
+         (LIST 'CONS (bld_st_code Vs (CAR Type))
+                     (bld_st_code Vs (CDR Type))))
+        ((MEMBER Type Vs) Type)
+        (T (LIST 'QUOTE Type))))
+
+\Locally binds polytypes to standardise them apart.\
+(DEFUN st_code* (Variables Type)
+  (IF (NULL Variables)
+      Type
+      (LIST 'LET
+        (MAPCAR (FUNCTION (LAMBDA (X) (LIST X (LIST 'gensym "A"))))
+                Variables)
+        Type)))
+
+\Set up the hash table for function types.\
+(setup-base-types)
+
+\Removes a function from Lisp and from the type environment.\
+(DEFUN destroy (Func)
+  (REMHASH Func *sfht*)
+  (REMHASH Func *arity*)
+  (SETQ *userdefs* (REMOVE Func *userdefs*))
+  (FMAKUNBOUND Func))
+
+\ -------------------------QI 6.2 TYPE THEORY in QI Prolog---------------------------------- \
+
+\See Chapter 13, Functional Programming in Qi for details.\
+
+(defprolog
+ \Raise error if maximum inferences exceeded.\
+ \Trace proofs if asked when the conclusion is not a typing, but fail.\
+ \If it is a typing, split the expression from the type and send to tt.\ 
+ \If not a typing, try using the datatype defs to prove it.\
+  "typecheck(P, Context) :- when((maximum_inferences_exceeded?)),
+                                    eval((error_max_inferences)).
+   typecheck(P, Context) :- when((spy?)),
+                                    when((not (typing? P))),
+                                    show_checking(P, Context),
+                                    fail().
+   typecheck((mode (X : A) -), Context) :- tt(X, A, Context).
+   typecheck(P, Context) :- when((not (typing? P))),
+                                    is(UserTypes (usertypes)),
+                                    try_usetypes(UserTypes, P, Context).")
+
+(defprolog
+   \Clauses in order of appearance. See Chapter 13, Functional Programming in Qi 
+     for details.
+
+   1. Trace proofs if asked, but fail.
+   2. Try to prove the conclusion is a hypothesis.
+   3. If the conc. is a function, get its type and unify it with the goal type.
+   4. If the conc. is a string etc. get its type and unify it with the goal type.
+   5. An empty list has the type (list A).
+   6. Rule of Applications
+   7. cons (R)
+   8. @p (R)
+   9. =
+   10. if
+   12. local
+   13. global
+   14. abstraction 
+   15+16+17. I/O
+   18. type rule for do
+   19. cons(L)
+   20. @p(L)
+   21. Try user defined types. \
+
+   "tt(X, A, Context) :- when((spy?)),
+                              show_checking((X : A), Context),
+                              fail().
+   tt(X, A, Context) :- by_hypothesis(X, A, Context).
+   tt(X, A, Context) :- when((symbol? X)), 
+                              is(B, (get_type_of_func X)),
+                              when((cons? B))
+                              =!(A, B).
+   tt(X,A, Context) :- when((atom? X)),
+                             is(B, (map_base_type X)),
+                             =(A, B).
+   tt((mode [] -), ((mode list -) _), Context) :- !.
+   tt((mode (F X) -), B, Context) :- tt(F, (A --> B), Context),
+                                              tt(X, A, Context).
+   tt((mode (@c X Y) -), ((mode list -) A), Context) :- !,
+                                                                       tt(X, A, Context),
+                                                                       tt(Y, (list A), Context).
+   tt((mode (@p X Y) -), (A (mode * -) B), Context) :- !, 
+                                                                       tt(X,  A, Context),
+                                                                       tt(Y, B, Context). 
+   tt((mode (= X Y) -), boolean, Context) :-  !, tt(X, A, Context),
+                                                             tt(Y, A, Context).    
+   tt((mode (if X Y Z) -), A, Context) :- !, tt(X, boolean, Context), !
+                                                    tt(Y, A, Context),
+                                                    tt(Z, A, Context).
+   tt((mode (let X Y Z) -), A, Context) :- !, when((variable? X)),
+                                                      tt(Y, B, Context),
+                                                      is(X*, (arbterm)),
+                                                      is(Z*, (substfree X* X Z)),
+                                                      tt(Z*, A, [(X* : B) | Context]).
+   tt((mode (set X Y) -), A, Context) :- !, 
+                                                    when((symbol? X)),
+                                                    tt((value X), A, Context),
+                                                    tt(Y, A, Context).
+   tt((mode (/. X Y) -), (A --> B), Context) :-  !, 
+                                                             when((variable? X)),
+                                                             is(X* (arbterm)),
+                                                             is(Y* (substfree X* X Y)),
+                                                             tt(Y*,  B, [(X* : A) | Context]). 
+   tt((mode [F String | Y] -), string, Context) :- member(F, [output, make-string]),
+                                                               !,
+                                                               tt(String, string, Context),
+                                                               all_typed?(Y, Context). 
+   tt((mode [error String | Y] -), A, Context) :- tt(String, string, Context),
+                                                              !,
+                                                              all_typed?(Y, Context). 
+   tt((mode (input+ : A) -) , B, Context) :- !, monomorphic?(A), =(A,B).
+   tt((mode (do X) -), A, Context) :- !, tt(X, A Context).
+   tt((mode [do X Y | Z] -), B, Context) :- !, tt(X, A, Context),
+                                                       tt([do Y | Z], B, Context).
+
+   tt(X, A, Context) :- split_cons(Context, NewContext),
+                             !,
+                             tt(X, A, NewContext).
+   tt(X, A, Context) :- split_pair(Context, NewContext),
+                             !,
+                             tt(X, A, NewContext).
+   tt(X, A, Context) :- is(UserTypes (usertypes)),
+                             try_usetypes(UserTypes, [X : A] Context).")
+
+\Succeeds if the list of objects each has a type - not necessarily all the same.\
+(defprolog 
+  "all_typed?((mode [] -), _).
+   all_typed?((mode [X | Y] -), Context) :-  all_typed?(Y, Context), 
+                                                         tt(X, A, Context).")
+
+\Implementation of cons (L) and @p(L)   \
+(defprolog
+
+   "split_cons((mode [((@c X Y) : (list A)) | Context] -), NewContext)
+           :- bind(NewContext, [(X : A), (Y : (list A)) | Context]).
+   split_cons((mode [P | Context] -), [P | NewContext]) :- split_cons(Context, NewContext).
+
+   split_pair((mode [((@p X Y) : (A * B)) | Context] -), NewContext)
+           :- bind(NewContext, [(X : A), (Y : B) | Context]).
+   split_pair((mode [P | Context] -), [P | NewContext]) :- split_pair(Context, NewContext).")
+
+\Proof by hypothesis - uses occurs-check unification over types.\
+(defprolog
+   "by_hypothesis(X, A, (mode [(Y : B) | _] -)) :- ==(X,Y), !, =!(A,B).
+    by_hypothesis(X, A, (mode [_ | Context] -)) :- by_hypothesis(X, A, Context).")
+
+\Prolog member predicate.\
+(defprolog
+   "member(X, (mode [X | _] -)).
+   member(X, (mode [_ | Y] -)) :- member(X, Y).")
+
+\Tests to see a type is monomorphic.\
+(defprolog
+   "monomorphic?((mode [X | Y] -)) :- monomorphic?(X), !, monomorphic?(Y).
+   monomorphic?((mode []  -)).
+   monomorphic?(X) :- when((atom? X)),
+                             when((not (variable? X))).") 
+  
+\Steps through all user-defined types.\
+(defprolog
+   "try_usetypes((mode [UserType | _] -), P, Context)
+     :- call(UserType(P, Context)).
+   try_usetypes((mode [_ | UserTypes] -), P, Context)
+     :- try_usetypes(UserTypes, P, Context).")
+
+\Trace the proof by stepping.\
+(defprolog                             
+   "show_checking(P, Context) :- eval((print_line)),
+                                          eval!((display_formula P)),
+                                          eval((carriage_return)),
+                                          eval!((map display_formula Context)),
+                                          eval((wait_for_user)).")
+
+\Is it a typing?\
+(define typing?
+  [_ : _] -> true
+  _ -> false)
+
+\Returns the set of datatypes in use.\
+(define usertypes
+   -> (value *usertypes*))
+
+\Substitututes one expression for a free variable.\
+(define substfree
+   X Y Y -> X
+   X Y [/. Y Z] -> [/. Y Z]
+   X Y [let Y W Z] -> [let Y W Z]
+   X Y [W | Z] -> [(substfree X Y W) | (substfree X Y Z)]
+   _ _ Y -> Y)
+
+\Generate a placeholder.\
+(define arbterm
+   -> (gensym "&&x"))
+
+\Toggle for tracing proof.\
+(define spy?
+   -> (value *spy*))
+
+\Show the formula in a pretty way.\
+(define display_formula
+   [X : A] -> (do (pretty X "") (FORMAT T " : ~A~%" A))
+   P -> (do (pretty P "") (FORMAT T "~%")))
+
+\Here is what 'pretty' means.\
+(define pretty
+  [@c X Y] Space -> (do (output "~A[" Space) 
+                                (pretty X "")  
+                                (mapit (/. Z (pretty Z " ")) (elim_@c Y)) 
+                                (output "]"))
+  [X $$ Y] Space -> (do (pretty X Space) (FORMAT T " : ") (pretty Y ""))
+  [X | Y] Space -> (do (FORMAT T "~A(" Space) 
+                              (pretty X "") 
+                              (map (/. Z (pretty Z " ")) Y)  
+                              (FORMAT T ")"))
+  X Space -> (do (output "~A" Space) (WRITE X))	where (string? X)
+  X Space -> (output "~A~S" Space (strip_&& X)))
+
+\MAPCAR for dotted lists.\
+(define mapit
+  F [X | Y] -> (map F [X | Y])
+  F X -> (do (FORMAT T " |") (F X)))
+
+\Dump &&s for looks.\
+(define strip_&&
+  X -> (strip_&&_help (explode X) X))
+
+(define strip_&&_help
+  [#\& #\& | X] _ -> (READ-FROM-STRING (COERCE X STRING))
+  _ X -> X)
+
+\Dump @cs for looks.\
+(define elim_@c
+   [@c X Y] -> [X | (elim_@c Y)]
+   X -> X)
+
+(define carriage_return
+  -> (TERPRI))
+
+\Wait for user to hit RETURN.\
+(define wait_for_user
+   -> (do (FORMAT T "~%> ")
+         (let Char (READ-CHAR)
+          (if (= Char #\^)
+              (error "aborted~%")
+              ok))))
+
+\Print info.\
+(define print_line
+   -> (FORMAT T "______________________________________________ ~A inference~P~%?- " 
+                           (value *logical-inferences*) 
+                           (value *logical-inferences*)))
+
+\Tests to see if the computer has exceeded the max inferences limit on the problem.\
+(define maximum_inferences_exceeded?
+  -> (> (value *logical-inferences*) (value *maxinferences*) ))
+
+\Max inferences error message.\
+(define error_max_inferences
+   -> (error "maximum inferences exceeded~%"))
+
+\Abstract datatypes function.\
+(DEFMACRO abstype (Type Rules Defs) 
+ `(PROGV '(*tc*) '(false) (abstype* (QUOTE ,Type) (QUOTE ,Rules) (QUOTE ,Defs))))
+
+\Go through functions and assign them the types. Compile their definitions into byte code.\
+(define abstype*
+   Type [:types | Rules] [:defs | Defs] 
+     -> (do (process_type_declarations Rules)
+              (MAPC EVAL Defs)
+              Type))
+
+\Go through functions and assign them the types.\ 
+(define process_type_declarations
+   [] -> []
+   [F : Type | Rules] -> (do (newfuntype* F Type) (process_type_declarations Rules)))
+
+\Preclude the use of chosen datatypes.\
+(define preclude
+   Types -> (set *usertypes* (difference (value *usertypes*) (validate-usertypes Types))))
+
+\Include the use of chosen datatypes.\
+(define include
+   Types -> (set *usertypes* (union (validate-usertypes Types) (value *usertypes*))))
+
+\Preclude all but the chosen datatypes.\
+(define preclude-all-but
+   Types -> (set *usertypes* (validate-usertypes Types)))
+
+\Include all but the chosen datatypes.\
+(define include-all-but
+   Types -> (set *usertypes* (difference (value *all-usertypes*) (validate-usertypes Types))))
+
+\Check all the chosen datatypes to make sure they exist.\
+(define validate-usertypes
+   [] -> []
+   [Type | Types] -> [Type | (validate-usertypes Types)]	where (valid-usertype? Type)
+   [Type | _] -> (error "~A is not a user type~%" Type))
+
+\A valid datatype is one that has left a record.\
+(define valid-usertype?
+   Type -> (or (element? Type (value *all-usertypes*))
+                   (cons? (assoc Type (value *all-synonyms*)))))   
+
+\--------------------------- Qi YACC ------------------------------------\
+
+\The failure object that triggers backtracking.\
+(DEFVAR *Failure* '(NIL #\Escape))
+
+\Invokes the generated compiler and places the source in a list.\
+(DEFUN compile (F X)
+  (LET ((O (FUNCALL F (LIST X NIL))))
+    (IF (OR (failure? O) (NOT (NULL (CAR O))))
+        #\Escape
+        (CADR O))))
+
+\Toplevel invocation to the compiler-compiler - compiles a compiler-compiler
+ non-terminal into a Lisp function.\
+(DEFMACRO defcc (Symbol &REST CC_stuff)
+  (LIST 'compile_cc (LIST 'QUOTE Symbol) (LIST 'QUOTE CC_stuff)))
+
+\Assembles the expansions (cc_rules) of the compiler-compiler into a list
+ and maps cc_body to turn each into Lisp code.  The cases macro is wrapped
+ around the resulting Lisp code and a DEFUN to turn the code into a Lisp  
+ function. The function is then compiled into machine code and stored so that 
+ it can be traced by the Qi trace package.\
+(DEFUN compile_cc (Symbol CC_Stuff)
+  (COMPILE (EVAL (record_source
+   (LIST 'DEFUN Symbol '(Stream)
+    (CONS 'cases
+      (MAPCAR 'cc_body
+        (split_cc_rules CC_Stuff NIL))))))))
+
+\Takes the cc rules and using ;, splits them into a list of rules for easy processing.\
+(DEFUN split_cc_rules (CCstuff RevRule)
+  (COND ((NULL CCstuff)
+         (IF (NULL RevRule)
+             NIL
+             (LIST (split_cc_rule (REVERSE RevRule) NIL))))
+        ((EQ (FIRST CCstuff) ';)
+         (CONS (split_cc_rule (REVERSE RevRule) NIL)
+               (split_cc_rules (REST CCstuff) NIL)))
+        (T (split_cc_rules (REST CCstuff) (CONS (FIRST CCstuff) RevRule)))))
+
+\Takes a cc rule and using :=, splits it into syntax and semantics.
+ If the semantics consists of 1 element then it is returned.  Else if
+ it consists of > 1, then the results are listed. If there are no semantics (no := is present) 
+ then a warning is issued.  The := is inserted with the syntax after it, causing the original 
+ input to be returned. \
+(DEFUN split_cc_rule (Rule RevSyntax)
+  (COND ((EQ (FIRST Rule) ':=)
+         (IF (= (LENGTH (REST Rule)) 1)
+             (LIST (REVERSE RevSyntax) (SECOND Rule))
+             (LIST (REVERSE RevSyntax) (CONS 'LIST (REST Rule)))))
+        ((NULL Rule)
+         (warn (FORMAT NIL "~{ ~S~} has no semantics.~%" (REVERSE RevSyntax)))
+         (split_cc_rule (LIST ':= (default_semantics (REVERSE RevSyntax))) RevSyntax))
+        (T (split_cc_rule (REST Rule) (CONS (FIRST Rule) RevSyntax)))))
+
+\Default semantics if the user supplies none.\
+(DEFUN default_semantics (Syntax)
+  (COND ((NULL Syntax) Syntax)
+        ((grammar_symbol? (CAR Syntax))
+         (LIST 'APPEND (CAR Syntax) (default_semantics (CDR Syntax))))
+        (T (LIST 'CONS (CAR Syntax) (default_semantics (CDR Syntax))))))
+
+\Takes a cc_rule and turns it into Lisp code.  The First element of the
+ rule is the syntax, the second element is the input stream on which the
+ Lisp code operates, the third element is the semantics.\
+(DEFUN cc_body (Rule) (syntax (FIRST Rule) 'Stream (SECOND Rule)))
+
+\Looks at the syntax by cases.  Depending on the nature of the first symbol of the syntax, 
+ this function generates the appropriate code for parsing the input stream. 
+ When the syntax is exhausted, the command generated forms a pair of the input 
+ part (CAR) of the stream and then calls the semantics to generate the semantics code.\
+ (DEFUN syntax (Syntax Stream Semantics)
+  (COND ((NULL Syntax)
+         `(LIST (FIRST ,Stream) ,(semantics Semantics)))
+        ((close_proc? (FIRST Syntax)) Semantics)         
+        ((grammar_symbol? (FIRST Syntax))
+         (recursive_descent Syntax Stream Semantics))
+        ((terminal? (FIRST Syntax))
+         (check_stream Syntax Stream Semantics))
+        ((eos? (FIRST Syntax))
+         (check_eos Syntax Stream Semantics))
+        ((jump_stream? (FIRST Syntax))
+         (jump_stream Syntax Stream Semantics))
+        ((list_call? (FIRST Syntax))
+         (list_call (CONS (decons (FIRST Syntax))
+                          (REST Syntax))
+                    Stream Semantics))
+        (T (ERROR "~S is not legal syntax.~%" (FIRST Syntax)))))
+
+\Tests for a marker that shows the end of a list\
+(DEFUN close_proc? (Fragment) (EQ Fragment '-end-of-list-))
+
+\The first case - the syntax fragment is a grammar symbol (e.g. <noun>)\ 
+(DEFUN grammar_symbol? (Fragment)
+  (AND (SYMBOLP Fragment)
+       (LET* ((CHARS (COERCE (FORMAT NIL "~A" Fragment) 'LIST))
+              (FCHAR (FIRST CHARS))
+              (LCHAR (FIRST (LAST CHARS))))
+             (AND (CHAR-EQUAL #\< FCHAR) (CHAR-EQUAL #\> LCHAR)))))
+
+\Action on parsing with a grammar symbol; 
+ (a) we generate code Test that applies the code associated with the 
+     grammar symbol to the stream. 
+ (b) We generate code Action that applies the code associated with the 
+     rest of the syntax to the result of Test. 
+ (c) We generate code Else that allows us to return failure if the parsing fails.
+ (d) We generate code that says store the result of Test in a local variable 
+      whose name happens to be that of the grammar symbol. If this local 
+      variable does not register a parse failure, then evaluate the code Action.  
+      If it does register a parse failure then return the code Else, which registers 
+      a failure.\
+
+(DEFUN recursive_descent (Syntax Stream Semantics)
+  (LET ((Test (LIST (FIRST Syntax) Stream))
+        (Action (syntax (REST Syntax) (FIRST Syntax) Semantics))
+        (Else (CONS 'LIST *Failure*)))
+       `(LET ((,(FIRST Syntax) ,Test))
+             (IF (NOT (failure? ,(FIRST Syntax)))
+                 ,Action
+                 ,Else))))
+
+\Test to see if the head is a list structure in cons form. \
+(DEFUN list_call? (Fragment) 
+  (AND (CONSP Fragment) (cons_structure? Fragment)))
+
+(DEFUN cons_structure? (Fragment)
+  (COND ((CONSP Fragment) 
+         (IF (AND (EQ (FIRST Fragment) 'cons) (= (LENGTH Fragment) 3))
+             (AND (cons_structure? (SECOND Fragment)) 
+                  (cons_structure? (THIRD Fragment)))
+             NIL))
+        (T)))
+
+\Remove the conses from the fragment.\
+(DEFUN decons (Fragment)
+  (COND ((AND (CONSP Fragment) (EQ (FIRST Fragment) 'cons)) 
+         (CONS (decons (SECOND Fragment)) (decons (THIRD Fragment))))
+        (T Fragment)))
+
+\Action on parsing with a non-empty syntax list (FIRST Syntax);
+
+(a) we generate new new local variables LocalHead and LocalTail and the code 
+    Test that tests the CAAR of the stream to see if it is a non-empty list.
+(b) We generate code HeadStream that takes the CAAR of the stream and lists    
+    it with the output stream (CADR).  We generate TailStream that takes the
+    CDAR of the stream and lists it with the output stream (CADR).  We    
+    generate NewSyntax that marks the end of the first part of the syntax, 
+    but warns there is more to come.
+(c) We generate code ParseHeadthenTail that results from applying syntax to 
+    (FIRST Syntax) HeadStream and ParseTail.
+(d) We generate code ParseTail that results from applying syntax to 
+    (REST Syntax), the TailStream and Semantics.
+(e) We generate code Else for a parse failure.
+(f) We generate code that says
+    (i) Use Test, if the result is T then make local bindings and return the     
+        result of evaluating ParseHeadthenTail.
+    (ii) Otherwise, return Else.\
+
+(DEFUN list_call (Syntax Stream Semantics)
+  (LET* ((LocalHead (GENTEMP "HeadStream"))
+         (LocalTail (GENTEMP "TailStream"))
+         (Test `(AND (CONSP (FIRST ,Stream))
+                     (CONSP (CAAR ,Stream))))
+         (HeadStream `(LIST (CAAR ,Stream) (CADR ,Stream)))
+         (TailStream `(LIST (CDAR ,Stream) (CADR ,Stream)))
+         (NewSyntax (APPEND (FIRST Syntax) '(! -end-of-list-)))
+         (ParseTail (syntax (REST Syntax) LocalTail Semantics))
+         (ParseHeadthenTail (syntax NewSyntax LocalHead ParseTail))
+         (Else (CONS 'LIST *Failure*)))
+        `(IF ,Test
+             (LET ((,LocalHead ,HeadStream) 
+                   (,LocalTail ,TailStream))
+                   ,ParseHeadthenTail)
+             ,Else)))       
+
+\A terminal is anything which does not fit into the other classes of syntax.\
+(DEFUN terminal? (Fragment)
+  (AND (NOT (CONSP Fragment))
+       (NOT (grammar_symbol? Fragment))
+       (NOT (jump_stream? Fragment))
+       (NOT (rest_stream? Fragment))
+       (NOT (eos? Fragment)) (NOT (close_proc? Fragment))))
+
+\Check the input stream to see if the non-terminal occurs.  If it does then
+ change the stream to remove the CAAR of the stream, else return a parse failure.\
+(DEFUN check_stream (Syntax Stream Semantics)
+  (LET ((Test `(AND (CONSP (FIRST ,Stream))
+                   (EQUAL (FIRST (FIRST ,Stream))
+                       (QUOTE ,(FIRST Syntax)))))
+        (Action (syntax (REST Syntax)
+                        `(LIST (REST (FIRST ,Stream)) (SECOND ,Stream))
+                        Semantics))
+        (Else (CONS 'LIST *Failure*))) 
+         (LIST 'IF Test Action Else)))
+
+\Symbol denoting check for empty input stream\
+(DEFUN eos? (Fragment) (EQ Fragment '!))
+
+\Symbol denoting CAR of input part of stream \
+(DEFUN jump_stream? (Fragment) (EQ '-*- Fragment))
+
+\Checks to see if the input part of the stream is empty\
+(DEFUN check_eos (Syntax Stream Semantics)
+  (LET ((Test `(NULL (FIRST ,Stream)))
+        (Action (syntax (REST Syntax)
+                        `(LIST (REST (FIRST ,Stream)) (SECOND ,Stream))
+                        Semantics))
+        (Else (CONS 'LIST *Failure*))) 
+         (LIST 'IF Test Action Else)))  
+
+\Reading -*- as leading syntax symbol - code tests for non-empty input
+ and skips the examination of the leading element of the input. \        
+(DEFUN jump_stream (Syntax Stream Semantics)
+  (LET ((Test `(CONSP (FIRST ,Stream)))
+        (Action (syntax (REST Syntax)
+                        `(LIST (REST (FIRST ,Stream)) (SECOND ,Stream))
+                        Semantics))
+        (Else (CONS 'LIST *Failure*))) 
+         (LIST 'IF Test Action Else)))
+
+\Process the semantics - for a grammar symbol, the CADR of the result is returned.\       
+(DEFUN semantics (Semantics)
+  (COND ((NULL Semantics) NIL)
+        ((AND (LISTP Semantics) 
+              (EQ (CAR Semantics) 'let) 
+              (= (LIST-LENGTH Semantics) 4))
+              (LIST 'LET (LIST (LIST (CADR Semantics) 
+                 (semantics (CADDR Semantics))))
+             (SUBST (CADR Semantics) 
+                    (LIST 'QUOTE (CADR Semantics))
+                    (semantics (CADDDR Semantics))
+                    :TEST 'EQUAL)))
+        ((EQ 'Stream Semantics) Semantics)
+        ((terminal? Semantics) (IF (OR (STRINGP Semantics)
+   				(NUMBERP Semantics)
+  				(CHARACTERP Semantics)
+   				(NULL Semantics))
+                                          Semantics
+			     (LIST 'QUOTE Semantics)))
+        ((grammar_symbol? Semantics) (LIST 'SECOND Semantics))
+        ((jump_stream? Semantics) '(CAAR Stream))
+        ((rest_stream? Semantics) '(CDAR Stream))
+        ((CONSP Semantics)
+         (CONS (FIRST Semantics) 
+               (MAPCAR 'semantics (REST Semantics))))))
+
+\Symbol denoting CDR of input part of stream. \
+(DEFUN rest_stream? (Semantics) (EQ Semantics '-s-))
+
+\Empty expansion\
+(DEFUN <e> (Stream) Stream)
+
+\Test for failure - triggers backtracking.\
+(DEFUN failure? (X) (EQ (CADR X) #\Escape))
+
+\Works like COND except that failure? and not NIL causes the next line to be evaluated.\
+(DEFMACRO cases (&REST X)
+  (IF (NULL X)
+      '*Failure*
+      `(LET ((Y ,(CAR X)))
+            (IF (failure? Y)
+                ,(CONS 'cases (CDR X))
+                Y))))
+
+\-----------------------------QI I/O -----------------------------------------\
+
+\Dump command, set the target file to a .lsp file and load the Qi program.\
+(DEFUN dump (X) 
+  (PROGV '(*dump-file*) (LIST (FORMAT NIL "~A.lsp" X)) 
+            (load X)) ) 
+
+\Load help; read the file, macroexpand the contents,
+ evaluate the contents and time the whole operation.\
+(DEFUN load (File)
+  (TIME (evaluate_file_contents (MAPCAR 'macroexpand (read-file File))))
+  (TERPRI)  
+  'loaded)
+
+\Default, macroexpand does nothing unless the user programs it.\
+(DEFUN macroexpand (X) X)
+
+\
+1. If the type checker is switched on, scan and record the signatures of the functions in *tempsigs*.
+2. Then toplevel_evaluate each element just as if they had been typed into the top level
+  one by one.
+3. Print out statistics.
+4. Reset *tempsigs* to [].\
+(DEFUN evaluate_file_contents (Contents)
+  (IF (EQ *tc* 'true) (MAPCAR 'scan_for_signatures Contents))
+  (MAPCAR (FUNCTION (LAMBDA (X) (PROG2 (toplevel_evaluate (LIST X)) (TERPRI)))) Contents)
+  (IF (EQ *tc* 'true) (FORMAT T "typechecked in ~A inferences.~%" *logical-inferences*))
+  (SETQ *tempsigs* NIL))
+
+(SETQ *tempsigs* NIL)
+
+\Some Lispy stuff (must have been in a Lisp mood), just extracts the type from each function.\
+(DEFUN scan_for_signatures (Expr)
+  (IF (definition? Expr)
+   (LET ((Type (curry_type (extract_signature (CADR Expr) (CDDR Expr)))))
+        (newfuntype* (CADR Expr) Type)
+        (PUSH (CADR Expr) *tempsigs*))))
+
+(DEFUN definition? (Expr) (AND (CONSP Expr) (EQ (CAR Expr) 'define)))
+
+(DEFUN extract_signature (Name Body)
+   (IF (EQ (CAR Body) '{) 
+       (extract_signature* Name (CDR Body)) 
+       (ERROR "~A lacks a type.~%" Name)))
+
+(DEFUN extract_signature* (Name Body)
+  (COND ((EQ (CAR Body) '}) NIL)
+        ((CONSP Body) 
+   (CONS (CAR Body) (extract_signature* Name (CDR Body))))
+        (T (ERROR "Unmatched { in ~A.~%" Name))))  
+
+\Qi function that writes to a file.\
+(DEFUN write-to-file (Filename Output)
+  (WITH-OPEN-FILE (OUTSTREAM (FORMAT NIL "~A~A" *qi_home_directory* Filename)
+                                           :DIRECTION :OUTPUT 
+                               :IF-EXISTS :APPEND 
+                               :IF-DOES-NOT-EXIST :CREATE)
+    (FORMAT OUTSTREAM "~%")
+    (COND ((STRINGP Output) (WRITE-STRING Output OUTSTREAM)) 
+          (T (PPRINT Output OUTSTREAM)))  )
+  Filename) 
+
+\Qi function that deletes a file.\
+(DEFUN delete-file (X) (IF (PROBE-FILE X) (DELETE-FILE X)) X)
+
+\Qi untyped input function.\
+(define input
+  -> (eval (CAR (lineread))))
+
+(DEFMACRO input+ (Colon Type) 
+  (DECLARE (IGNORE Colon))
+  (LIST 'input+help (LIST 'QUOTE Type)))
+
+(DEFUN input+help (V3461)
+ (LET ((I (CAR (lineread))))
+   (IF (EQ (typechecks? NIL I (curry_type V3461)) 'false)
+   (PROGN (output "~A is not of type" I)
+             (FORMAT T " ~A~%Reinput: " (curry_type V3461))
+              (input+help V3461))
+   (eval I))))
+
+(DEFUN read-char (X)
+  (DECLARE (IGNORE X))
+   (READ-CHAR))
+
+\Reads in a file as a list of characters.\
+(DEFUN read-file-as-charlist (File)
+  (LET ((AbsFile (FORMAT NIL "~A~A" *qi_home_directory* File)))
+         (IF (NOT (PROBE-FILE AbsFile)) (ERROR "~%~A does not exist~%" AbsFile))
+  	(WITH-OPEN-FILE (In AbsFile :DIRECTION :INPUT)
+   	 (DO ((Letter T) (Letters NIL))
+        	       ((NULL Letter) (NREVERSE (CDR Letters)))
+         	       (SETQ Letter (READ-CHAR In NIL NIL))
+                   (PUSH Letter Letters)))))
+
+\Default home directory\
+(DEFVAR *qi_home_directory* "")
+
+\Change home directory.\
+(DEFUN cd (String) 
+ (IF (EQUAL String "")
+     (SETQ *qi_home_directory* String)
+     (SETQ *qi_home_directory* (FORMAT NIL "~A/" String))))
+
+\Reads in a file - uses Qi syntax.\
+(DEFUN read-file (Filename)
+  (LET ((AbsFilename (FORMAT NIL "~A~A" *qi_home_directory* Filename)))
+   (IF (NOT (PROBE-FILE AbsFilename))
+       (error "~%~A does not exist~%" AbsFilename))
+  (WITH-OPEN-FILE (Stream AbsFilename :DIRECTION :INPUT)
+    (read-user-input Stream (READ-CHAR Stream NIL NIL) 
+                NIL 1 (@p 0 1) (@p 0 1) 'false 'false 'eof?))))
+
+\Qi linereader - uses Qi syntax.\
+(DEFUN lineread ()
+ (LET ((Input (read-user-input *STANDARD-INPUT* 
+                     (read-user-input-stream *STANDARD-INPUT*) 
+                     '(#\Space) 
+                     1 
+                     (@p 0 1) 
+                     (@p 0 1)
+  	'false 
+                     'false 
+                     'endinput?)))
+   (COND ((NULL Input) (lineread))
+            (T (MAPCAR 'macroexpand Input)))))
+
+\End of file test.\
+(define eof?
+  Stream [] Chars Line SqBr RBr String Sleep -> true
+  _ _ _ _ _ _ _ _ _ -> false)
+
+\End of lineread test.\
+(define endinput?
+   _ #\^ _ _ _ _ _ _ -> (error "input aborted~%")
+   _ #\Newline [Char | Chars] _ (@p 0 _) (@p 0 _) false false -> true
+   _ _ _ _ _ _ _ _ _ -> false)
+
+\Big scary reader - see appendix C of Functional Programming in Qi for the reader rules.\
+(define read-user-input 
+  Stream Char Chars Line SqBr RBr String Sleep End_of_Stream? 
+           -> (expand-mlet (assemble-chars Chars SqBr RBr String Sleep))	
+    where (FUNCALL End_of_Stream? Stream Char Chars Line SqBr RBr String Sleep) 
+  Stream #\Newline Chars Line SqBr RBr String Sleep End_of_Stream? 
+  -> (read-user-input Stream (read-user-input-stream Stream) 
+         [#\Newline | Chars] (+ 1 Line) (incl Line SqBr) (incl Line RBr) String Sleep End_of_Stream?)	
+  Stream #\\ [#\# | Chars] Line SqBr RBr String Sleep End_of_Stream? 
+  -> (read-user-input Stream (read-user-input-stream Stream) 
+             [#\\ #\# | Chars] Line SqBr RBr String Sleep End_of_Stream?)
+  Stream Char [#\\ #\# | Chars] Line SqBr RBr String Sleep End_of_Stream? 
+  -> (read-user-input Stream (read-user-input-stream Stream) 
+             [Char #\\ #\# | Chars] Line SqBr RBr String Sleep End_of_Stream?)
+  Stream #\\ Chars Line SqBr RBr String Sleep End_of_Stream? 
+      -> (read-user-input Stream (read-user-input-stream Stream) 
+             Chars Line SqBr RBr String (not Sleep) End_of_Stream?)   
+  Stream Char Chars Line SqBr RBr String Sleep End_of_Stream? 
+  -> (read-user-input Stream (read-user-input-stream Stream) Chars Line SqBr RBr String Sleep End_of_Stream?)		where Sleep
+  Stream #\" Chars Line SqBr RBr String Sleep End_of_Stream? 
+   -> (read-user-input Stream (read-user-input-stream Stream) [#\" | Chars] Line SqBr RBr (not String) Sleep End_of_Stream?)
+  Stream Char Chars Line SqBr RBr String Sleep End_of_Stream? 
+   -> (read-user-input Stream (read-user-input-stream Stream) [Char | Chars] Line SqBr RBr String Sleep End_of_Stream?)	where String
+  Stream #\[ Chars Line SqBr RBr String Sleep End_of_Stream? 
+   -> (read-user-input Stream (read-user-input-stream Stream) 
+          (append (reverse [#\Space #\( #\l #\i #\s #\t #\i #\t #\Space]) Chars) Line (inc SqBr) RBr String Sleep End_of_Stream?)
+  Stream #\] Chars Line SqBr RBr String Sleep End_of_Stream? 
+   -> (read-user-input Stream (read-user-input-stream Stream) [#\) | Chars] Line (dec SqBr) RBr String Sleep End_of_Stream?)
+  Stream #\| Chars Line SqBr RBr String Sleep End_of_Stream? 
+   -> (read-user-input Stream (read-user-input-stream Stream) [#\Space #\@ #\Space | Chars] Line SqBr RBr String Sleep End_of_Stream?)
+  Stream #\( Chars Line SqBr RBr String Sleep End_of_Stream? 
+   -> (read-user-input Stream (read-user-input-stream Stream) [#\( | Chars] Line SqBr (inc RBr) String Sleep End_of_Stream?)
+  Stream #\) Chars Line SqBr RBr String Sleep End_of_Stream? 
+   -> (read-user-input Stream (read-user-input-stream Stream) [#\) | Chars] Line SqBr (dec RBr) String Sleep End_of_Stream?)
+  Stream #\= [Char | Chars] Line SqBr RBr String Sleep End_of_Stream? 
+   -> (read-user-input Stream (read-user-input-stream Stream) [#\= #\_ #\i #\q Char | Chars] Line SqBr RBr String Sleep End_of_Stream?)
+	where (and (seperator? Char) (seperator? (peek Stream)))
+  Stream #\= [#\> Char | Chars] Line SqBr RBr String Sleep End_of_Stream? 
+   -> (read-user-input Stream (read-user-input-stream Stream) 
+                               [#\= #\> #\_ #\i #\q Char | Chars] 
+                        Line SqBr RBr String Sleep End_of_Stream?)
+	where (and (seperator? Char) 
+                       (seperator? (peek Stream)))
+Stream #\= [#\< Char | Chars] Line SqBr RBr String Sleep End_of_Stream? 
+   -> (read-user-input Stream (read-user-input-stream Stream) [#\= #\< #\_ #\i #\q Char | Chars] Line SqBr RBr String Sleep End_of_Stream?)
+	where (and (seperator? Char) 
+                       (seperator? (peek Stream)))
+ Stream #\< [Char | Chars] Line SqBr RBr String Sleep End_of_Stream? 
+   -> (read-user-input Stream (read-user-input-stream Stream) [#\< #\_ #\i #\q Char | Chars] Line SqBr RBr String Sleep End_of_Stream?)
+	where (and (seperator? Char) 
+                           (seperator? (peek Stream)))
+  Stream #\> [Char | Chars] Line SqBr RBr String Sleep End_of_Stream? 
+   -> (read-user-input Stream (read-user-input-stream Stream) 
+  [#\> #\_ #\i #\q Char | Chars] Line SqBr RBr String Sleep End_of_Stream?)
+	where (and (seperator? Char) 
+                           (seperator? (peek Stream)))
+  Stream #\: Chars Line SqBr RBr String Sleep End_of_Stream?
+   -> (read-user-input Stream (read-user-input-stream Stream) 
+    	 [#\Space #\$ #\$ #\Space | Chars] Line SqBr RBr String Sleep End_of_Stream?)
+	where (seperator? (peek Stream))
+  Stream #\; Chars Line SqBr RBr String Sleep End_of_Stream?
+   -> (read-user-input Stream (read-user-input-stream Stream) 
+    	 [#\Space #\; #\Space | Chars] Line SqBr RBr String Sleep End_of_Stream?)
+  Stream #\{ Chars Line SqBr RBr String Sleep End_of_Stream?
+   -> (read-user-input Stream (read-user-input-stream Stream) 
+    	 [#\Space #\{ #\Space | Chars] Line SqBr RBr String Sleep End_of_Stream?)
+  Stream #\} Chars Line SqBr RBr String Sleep End_of_Stream?
+   -> (read-user-input Stream (read-user-input-stream Stream) 
+    	 [#\Space #\} #\Space | Chars] Line SqBr RBr String Sleep End_of_Stream?)
+  Stream #\, Chars Line SqBr RBr String Sleep End_of_Stream?
+   -> (read-user-input Stream (read-user-input-stream Stream) 
+    	 [#\Space #\+ #\+ #\Space | Chars] Line SqBr RBr String Sleep End_of_Stream?)
+  Stream Char Chars Line SqBr RBr String Sleep End_of_Stream? 
+   -> (read-user-input Stream (read-user-input-stream Stream) [Char | Chars] Line SqBr RBr String Sleep End_of_Stream?))
+
+ \Translate mlet into let.    Works for dotted pairs.\
+  (define expand-mlet
+     [@p W X Y | Z] -> (expand-mlet [@p W [@p X Y | Z]]) 
+     [mlet V W X Y | Z] -> (expand-mlet [let V W [mlet X Y | Z]])
+     [mlet X Y Z] -> (expand-mlet [let X Y Z])
+     [X | Y] -> (map-dotted-pair expand-mlet [X | Y])
+     X -> X)     
+
+(define map-dotted-pair
+    _ [] -> []
+    F [X | Y] -> [(F X) | (map-dotted-pair F Y)]
+    F X -> (F X))
+   
+\Reads the next character off the stream, stores it on the list of characters read.\
+(DEFUN read-user-input-stream (Stream)
+  (LET ((CHAR (READ-CHAR Stream NIL NIL)))
+       (PUSH CHAR *read-user-input-characters*)
+       CHAR))
+
+\Peeks at the next character in Stream\
+(define peek 
+  Stream -> (PEEK-CHAR [] Stream []))
+
+\Seperators.\
+(define seperator?
+  X -> (element? X [#\Space #\Newline #\( #\) #\] #\[ #\,]))
+
+\Increment the bracket counter.\
+(define inc
+  (@p B L) -> (@p (+ 1 B) L))
+
+\Decrement the bracket counter.\
+(define dec
+  (@p B L) -> (@p (- B 1) L))
+
+\Increment the line counter.\
+(define incl
+  L (@p 0 _) -> (@p 0 (+ L 1))
+  _ X -> X)
+
+\Assemble the list of characters into an output.\
+(define assemble-chars
+ \Brackets balance; coerce to a string, read the string and convert what is read to cons form.\
+  Chars (@p 0 L) (@p 0 L) false false  
+  -> (cons_form (READ-FROM-STRING (COERCE [#\( | (reverse [#\) | Chars])] STRING)))
+ \Sundry error messages concerning missing comment braces and brackets.\
+  _ _ _ true _ -> (error (FORMAT NIL "Unmatched ~C" #\"))
+  _ _ _ _ true -> (error (FORMAT NIL "Unmatched ~C" #\\))
+  _ (@p Sq L) _ _ _ 
+  -> (if (> Sq 0)
+       (error "Too many [s or too few ]s; last balanced at line ~A" L)
+       (error "Too many ]s or too few [s; last balanced at line ~A" L))
+				where (not (= Sq 0))
+  _ _ (@p Rb L) _ _ 
+  -> (if (> Rb 0)
+       (error "Too many (s or too few )s; last balanced at line ~A" L)
+       (error "Too many )s or too few (s; last balanced at line ~A" L))
+				where (not (= Rb 0)))
+
+(define cons_form
+  [listit] -> []
+  AtSign -> (error "Improper use of |~%")	where (atsign? AtSign)
+  [listit AtSign X] -> (cons_form X)		where (atsign? AtSign)
+  [listit X | Y] -> [cons (cons_form X) (cons_form [listit | Y])]
+  [X | Y] -> (MAPCAR cons_form [X | Y])
+  X -> X)
+
+\Qi has a thing about @s (treated as alternative to |) so place in Lisp.\
+(DEFUN atsign? (X)
+  (IF (EQ X '@) 
+       'true 
+       'false))   
+
+\Prints an error message in Qi syntax.\
+(DEFUN error (&REST ARGS) 
+   (FORMAT T "error: ")
+   (FORMAT T (sanitise-string (APPLY 'FORMAT (CONS NIL ARGS))))
+   (ERROR ""))
+
+\Builds a string.\
+(DEFUN make-string (&REST ARGS) 
+  (sanitise-string (APPLY 'FORMAT (CONS NIL ARGS))))
+
+\Prints a message. Calls FORMAT to read the output to a string and 
+ prints the output in Qi format.\
+(DEFUN output (&REST ARGS) 
+  (FORMAT T (sanitise-string (APPLY 'FORMAT (CONS NIL ARGS))))
+  "done")
+
+\Tweaks the character list to make the output look right.\
+(DEFUN sanitise-string (String)
+  (sanitise-string-help (COERCE String 'LIST) NIL false))
+
+\See appendix C in Functional Programming in Qi for details.\
+(define sanitise-string-help 
+   [] Accum _ -> (COERCE (reverse Accum) STRING)
+   [#\" | Chars] Accum Flag -> (sanitise-string-help Chars [#\" | Accum] (not Flag))
+   [Char | Chars] Accum true -> (sanitise-string-help Chars [Char | Accum] true)
+   [#\' #\) | Chars] Accum Flag -> (sanitise-string-help Chars [#\) | Accum] Flag)
+   [#\( #\@ #\p #\Space | Chars] Accum Flag
+      -> (sanitise-string-help 
+             (find_matching_paren Chars 1 [] Flag) [#\Space #\p #\@ #\( | Accum] Flag)
+   [#\# #\\ Char | Chars] Accum Flag -> (sanitise-string-help Chars [Char #\\ #\# | Accum] Flag)
+   [#\( | Chars] Accum Flag -> (sanitise-string-help Chars [#\[ | Accum] Flag)
+   [#\) | Chars] Accum Flag -> (sanitise-string-help Chars [#\] | Accum] Flag)
+   [#\q #\i #\_ #\> | Chars] Accum Flag -> (sanitise-string-help Chars [#\> | Accum] Flag)
+   [#\q #\i #\_ #\< | Chars] Accum Flag -> (sanitise-string-help Chars [#\< | Accum] Flag)
+   [#\q #\i #\_ #\> #\= | Chars] Accum Flag -> (sanitise-string-help Chars [#\= #\> | Accum] Flag)
+   [#\q #\i #\_ #\<  #\= | Chars] Accum Flag -> (sanitise-string-help Chars [#\= #\< | Accum] Flag)
+   [#\q #\i #\_ #\= | Chars] Accum Flag -> (sanitise-string-help Chars [#\= | Accum] Flag)
+   [#\N #\I #\L | Chars] Accum Flag -> (sanitise-string-help Chars [#\] #\[ | Accum] Flag)
+                                                   where (isolated_nil? Chars Accum)
+   [#\~ | Chars] Accum Flag -> (sanitise-string-help Chars [#\~ #\~ | Accum] Flag)
+   [Char | Chars] Accum Flag -> (sanitise-string-help Chars [Char | Accum] Flag))
+
+(define find_matching_paren 
+   [#\" | Chars] N Accum Flag -> (find_matching_paren Chars N [#\" | Accum] (not Flag))
+   [Char | Chars] N Accum true -> (find_matching_paren Chars N [Char | Accum] true)
+   [#\) | Chars] 1 Accum Flag -> (append (reverse [#\) #\' | Accum]) Chars) 
+   [#\) | Chars] N Accum Flag -> (find_matching_paren Chars (- N 1) [#\) | Accum] Flag)
+   [#\( | Chars] N Accum Flag -> (find_matching_paren Chars (+ N 1) [#\( | Accum] Flag) 
+   [Char | Chars] N Accum Flag -> (find_matching_paren Chars N [Char | Accum] Flag))   
+
+\NIL comes out as []\
+(define isolated_nil?
+   [] [] -> true
+   [] [X | _] -> (element? X [#\Space #\Newline #\( #\) #\] #\[])
+   [X | _] [] -> (element? X [#\Space #\Newline #\( #\) #\] #\[])
+   [X | _] [Y | _] -> (and (element? X [#\Space #\Newline #\( #\) #\] #\[])
+                                 (element? Y [#\Space #\Newline #\( #\) #\] #\[])))
+   
+\Printer for Qi\
+(define print
+  X -> (do (output "~S" X) X))
+
+\-------------------- BASIC QI LIBRARY FUNCTIONS ----------------------------------------\
+
+(DEFUN number? (X) (IF (NUMBERP X) 'true 'false))
+(DEFUN string? (X) (IF (STRINGP X) 'true 'false))
+(DEFUN character? (X) (IF (CHARACTERP X) 'true 'false))
+
+
+(DEFUN boolean? (X) (IF (MEMBER X '(true false)) 'true 'false))
+(DEFUN integer? (X) (IF (INTEGERP X) 'true 'false))
+(DEFUN float? (X) (IF (FLOATP X) 'true 'false))
+(DEFUN complex? (X) (IF (COMPLEXP X) 'true 'false))
+(DEFUN real? (X) (IF (REALP X) 'true 'false))
+(DEFUN rational? (X) (IF (RATIONALP X) 'true 'false))
+
+(DEFUN tuple? (X) (IF (TUPLE-P X) 'true 'false))
+
+(DEFUN sqrt (X) (SQRT X))
+(DEFUN random (X) (RANDOM X))
+(DEFUN round (X) (ROUND X))
+(DEFUN congruent? (X Y) (IF (EQUALP X Y) 'true 'false))
+(DEFUN qi_= (X Y) (IF (ABSEQUAL X Y) 'true 'false))
+
+(DEFUN == (X Y) (qi_= X Y))
+(DEFUN qi_> (X Y) (IF (> X Y) 'true 'false))
+(DEFUN qi_< (X Y) (IF (< X Y) 'true 'false))
+(DEFUN qi_>= (X Y) (IF (>= X Y) 'true 'false))
+(DEFUN qi_<= (X Y) (IF (<= X Y) 'true 'false))
+
+(DEFUN if-without-checking (String) 
+  (IF (EQ *tc* 'true)
+       (ERROR String)
+       'ok))
+
+(DEFUN if-without-checking (String) 
+  (IF (EQ *tc* 'false)
+       (ERROR String)
+       'ok))
+
+(DEFMACRO if (X Y Z)
+  `(LET ((*C* ,X))
+     (COND ((EQ *C* 'true) ,Y) ((EQ *C* 'false) ,Z)
+       (T (ERROR "~S is not a boolean~%" *C*)))))
+
+(DEFMACRO and (X Y) `(if ,X (if ,Y 'true 'false) 'false))
+(DEFMACRO or (X Y) `(if ,X 'true (if ,Y 'true 'false)))
+(DEFUN not (X)
+  (COND ((EQ X 'true) 'false) 
+        ((EQ X 'false) 'true)
+        (T (ERROR "~S is not a boolean~%" X))) )
+(DEFUN element? (x y) (IF (MEMBER x y :TEST 'ABSEQUAL) 'true 'false))
+(DEFUN subst (X Y Z) (SUBST X Y Z :TEST 'ABSEQUAL))
+(DEFUN remove (x y) (REMOVE x y :TEST 'ABSEQUAL))
+(DEFUN difference (x y) (SET-DIFFERENCE x y :TEST 'ABSEQUAL))
+(DEFUN assoc (x y) (ASSOC x y :TEST 'ABSEQUAL))
+(DEFMACRO let (VAR VAL EXPR) (LIST 'LET (LIST (LIST VAR VAL)) EXPR))
+(DEFMACRO list (&REST X) (CONS 'LIST X))
+(DEFUN y-or-n? (X) (IF (Y-OR-N-P X) 'true 'false))
+(DEFUN empty? (x) (IF (NULL x) 'true 'false))
+(DEFUN value (X) (SYMBOL-VALUE X))
+(DEFUN length (X) (LIST-LENGTH X))
+(DEFUN nth (N L) 
+  (IF (= N 1) (IF (NULL L) (error "nth expects a longer list.~%") (CAR L))
+      (nth (1- N) (CDR L))))
+(DEFUN explode (X) (COERCE (FORMAT NIL "~S" X) 'LIST))
+(DEFUN concat (X Y) (READ-FROM-STRING (FORMAT NIL "~A~A" X Y)))  
+(DEFUN append (X Y) (APPEND X Y))
+(DEFUN reverse (X) (REVERSE X))
+(DEFUN set (X Y) (SET X Y))
+(DEFUN @c (X Y) (CONS X Y))
+(DEFUN cons (X Y) (CONS X Y))
+(DEFUN cons? (X) (IF (CONSP X) 'true 'false))
+(DEFMACRO time (X) (LIST 'TIME X))
+(DEFUN gensym (X) (GENTEMP X))
+(DEFUN implementation_error (Func) 
+  (ERROR "Qi implementation error in ~A: report to support.~%" Func))
+(DEFUN head (X) 
+ (IF (CONSP X) (CAR X) (ERROR "head expects a non-empty list.~% ")))
+(DEFUN tail (X) 
+ (IF (CONSP X) (CDR X) (ERROR "tail expects a non-empty list.~% ")))
+(DEFUN save ()
+  (SETQ *history* NIL)
+  #+CLISP
+  (EXT:SAVEINITMEM)
+  #+CMU
+  (EXT:SAVE-LISP "Qi.core" :INIT-FUNCTION 'qi::qi :PRINT-HERALD NIL)
+  #-(OR CLISP CMU)
+  (ERROR "Unknown platform to Qi: ~A" (LISP-IMPLEMENTATION-TYPE)))
+
+(DEFUN quit ()
+  #+CLISP
+  (EXT:EXIT)
+  #+CMU
+  (EXT:QUIT)
+  #-(OR CLISP CMU)
+  (ERROR "Unknown platform to Qi: ~A" (LISP-IMPLEMENTATION-TYPE)))
+
+\Reads a list of characters to a list of strings (tokens) using a tokeniser.\
+(define read-chars-as-stringlist
+  Chars F -> (read-chars-as-stringlist* Chars [] [] F))
+
+(define read-chars-as-stringlist*
+  [] Word Words _ -> (reverse [(COERCE Word STRING) | Words])
+  [Char | Chars] Word Words F 
+   -> (if (F Char) 
+          (if (empty? Word)
+              (read-chars-as-stringlist* Chars [] Words F)
+              (read-chars-as-stringlist* Chars [] [(COERCE (reverse Word) STRING) | Words] F))
+          (read-chars-as-stringlist* Chars [Char | Word] Words F)))
+
+\Builds an array.\
+(DEFUN make-array (dims) (MAKE-ARRAY dims :INITIAL-ELEMENT #\Escape))
+
+\Gets an array element.\
+(DEFUN get-array (array dims default)
+  (LET ((array_element (APPLY #'AREF (CONS array dims))))
+    (IF (EQ array_element #\Escape)
+        default
+        array_element)))
+
+\Puts an element in an array.\
+(DEFUN put-array (array dims value)
+  (SETF (APPLY #'AREF (CONS array dims)) value))
+
+\Property lists.\
+(DEFUN put-prop (Ob Pointer Value) (SETF (GET Ob Pointer) Value))
+(DEFUN get-prop (Ob Pointer Default) (GET Ob Pointer Default))
+
+\------------------------------ THE QI TYPE CHECKER --------------------------------\
+
+\An expression X typechecks as having a type Type if it is provable 
+ using the typechecking procedure that it has that type.\
+(define typechecks?
+  _ [F | _] _ -> unit	where (exempted? F)
+  Env X Type 
+  ->  (let Y (cons->@c (curry (list->cons X)))
+          (let A (normalise_type Type)
+             (let Context (normalise_type_env Env)
+                (let ValidType 
+                     (typecheck* [Y : A] Context (FUNCTION (LAMBDA () (return* A T))))
+                     (if (empty? ValidType)
+                         false
+                         ValidType))))))
+
+(define exempted?
+   F -> (element? F (value *exempted*)))
+
+(set *exempted* [datatype defcc theory structure synonyms abstype defprolog])
+
+\Normalise each type in the environment\
+(define normalise_type_env
+  [] -> []
+  [X : A] -> [X : (normalise_type A)]
+  [X | Y] -> (MAPCAR normalise_type_env [X | Y])
+  X -> X)
+
+\Replace cons by @c (does not confuse the Horn clause program wh. uses cons for |\
+(define cons->@c
+  X -> (subst @c cons X))
+
+\Put list X1 ... Xn into cons form.\
+(define list->cons
+  [list] -> []
+  [list X | Y] -> [cons (list->cons X) (list->cons [list | Y])]
+  [X | Y] -> (MAPCAR list->cons [X | Y])
+  X -> X) 
+
+\Convert sequents and notes into a goalstack.\
+(define to-goals
+   Sequents Notes -> [Sequents Notes []])
+
+\Inverse of to-goals (almost).\
+(define from-goals
+   [Sequents Notes | _] -> (@p Sequents Notes))
+
+\Selector function - gets notes from stack.\
+(define notes-in
+  [_ Notes | _] -> Notes) 
+
+\Normalise type according to synonyms.\
+(define normalise_type
+  Type -> (let NewType (normalise_type* Type)
+                    (if (= NewType Type) Type (normalise_type NewType))))
+
+(define normalise_type*
+   [cons X []] -> [list (normalise_type* X)]
+   [X | Y] -> (map normalise_type* [X | Y])
+   X -> (let Synonym (assoc X (value *synonyms*))
+               (if (empty? Synonym) X (CADR Synonym))))
+
+(SETQ *synonyms* NIL)
+(SETQ *allsynonyms* NIL)
+
+\Declare synonyms.\
+(DEFMACRO synonyms (&REST X) (LIST 'synonyms-help (LIST 'QUOTE X)))
+
+\Places synonyms onto *synonyms*. Disallow string etc. to be used as a synonym for anything\
+
+(define synonym-help
+  [] -> compiled
+  [Type Def | Synonyms] -> (do (compile-synonym Type Def (value *synonyms*) (value *allsynonyms*))
+                                              (synonym-help Synonyms))
+				where (even? Synonyms)
+  _ -> (error "Odd number of elements in synonyms declaration.~%"))
+
+(define even?
+   [] -> true
+   [_ _ | L] -> (even? L)
+   _ -> false)
+
+(define compile-synonym
+  Type Def Synonyms AllSynonyms 
+  ->  (if (test-valid-synonym? Type)
+           (do (set *synonyms* [[Type Def] | Synonyms])
+                (set *allsynonyms* [Type | AllSynonyms]))
+           (FORMAT T "Skipping ~A with ~A; invalid synonym.~%" Type Def)))
+
+(define test-valid-synonym?
+   Type -> false	where (not (symbol? Type))
+   Type -> false	where (variable? Type)
+   Type -> false	where (system_type? Type)
+   Type -> (if (predefined_type? Type)
+                  (do (warn (FORMAT NIL "~A is already given a synonym; overwriting old definition.~%" Type)) 
+                       true)
+                  true))
+
+(define predefined_type?
+   Type -> (element? Type (value *allsynonyms*)))
+
+(define system_type?
+   Type -> (element? Type [list array * --> goals symbol unit character string number boolean]))
+
+\Qi equivalent of NULL.\
+(define empty?
+  [] -> true
+  _ -> false)
+
+\Number of rules in a theory.\
+(define theory-size
+  Theory -> (/ (LIST-LENGTH (SYMBOL-PLIST Theory)) 2))
+
+\Sets the maximum number of inferences allowed in type checking.\
+(define maxinferences
+  N -> (set *maxinferences* N))
+
+(SETQ *maxinferences* 1000000)
+
+\Test to see if the goalstack is empty.\
+(define solved?
+  [[] | _] -> true
+  _ -> false)
+
+\Gets a rule (function) or if no rule returns the identity function.\
+(define get-rule
+  Theory N -> (get-prop Theory N identity))
+
+\Identity function.\
+(define identity
+  X -> X)
+
+\Curry the input, except special forms.\
+(define curry
+  [input+ : Type] -> [input+ : Type]
+  [F | X] -> [F | (MAPCAR curry X)]	where (special_form? F)
+  [X Y] -> [(curry X) (curry Y)]
+  [X Y | Z] -> (curry [[X Y] | Z])
+  X -> X)
+
+\Gets type for base object.\
+ (define map_base_type
+  F -> symbol 	where (symbol? F)
+  F -> string 	where (string? F)
+  F -> number	where (number? F)
+  F -> character  	where (character? F)
+  F -> boolean	where (boolean? F)
+  [] -> [list (gensym "Type")]
+  _ -> [])
+
+\A symbol is any symbol other than true, false and [] and
+ placeholders beginning with &&\
+(DEFUN symbol? (X)
+  (IF (AND (SYMBOLP X) 
+	  (NOT (MEMBER X '(true false NIL)))
+              (NOT (place_holder? X)))
+      'true
+      'false))
+
+(DEFUN place_holder? (X)
+  (LET ((NAMESTRING (SYMBOL-NAME X))) 
+         (AND (> (LENGTH (THE STRING NAMESTRING)) 2)
+	    (CHAR-EQUAL #\& (CHAR NAMESTRING 0))
+                (CHAR-EQUAL #\& (CHAR NAMESTRING 1)))))  
+
+\Recognisor for special forms. Not to be curried.\
+ (define special_form?
+   F -> (element? F (value *special_forms*)))
+
+\Constructs special forms.\
+ (define specialise 
+   X -> (do (PUSH X (value *special_forms*)) X))
+
+\Removes special forms.\
+ (define unspecialise
+   X -> (do (set *special_forms* (REMOVE X (value *special_forms*))) X))
+
+\Existing special forms.\
+(DEFVAR *special_forms* '(cons let /. output error abort qi_= newfuntype if 
+                                   set do where cases @p @c list make-string))
+
+\-------------------- SEQUENT COMPILERS -----------------------------\
+
+(DEFMACRO datatype (&REST X) (LIST 'datatype_help (LIST 'QUOTE X)))
+
+\Compile the datatype, warn if it is overwriting something, record it and return the name of the datatype.\
+(DEFUN datatype_help (DataType)
+  (PROGV '(*occurs*) '(true)
+   (LET ((DataTypeName (CAR DataType)))
+         (compile '<datatype_definition> DataType)
+         (warn-if-defined DataTypeName)
+         (PUSHNEW DataTypeName *usertypes*)
+         (PUSHNEW DataTypeName *all-usertypes*)
+         DataTypeName)))
+
+\Warn if the datatype is defined.\
+(define warn-if-defined
+  DataTypeName -> (warn (FORMAT NIL "redefining ~A can cause type errors." DataTypeName))
+			where (element? DataTypeName (value *all-usertypes*))
+  _ -> ok)
+
+(set *usertypes* [])
+ 
+(DEFMACRO theory (&REST X) (LIST 'theory_help (LIST 'QUOTE X)))
+
+(DEFUN theory_help (Theory)
+  (PROGV '(*tc*) '(false)
+  (compile '<theory> Theory)
+  (CAR Theory)))
+
+\The following is the syntax for datatypes and theories and follows FPQi Appendix C\
+(defcc <datatype_definition>
+   <lowercase> <A-rules> <end> := (compile-datatype <lowercase> <A-rules>);
+   <lowercase> <A-rules> <datatype_error>;
+   <lowercase> <datatype_error>;
+   <datatype_error>;)
+
+(defcc <theory>
+  <lowercase> <B-rules> <end> := (compile-theory <lowercase> <B-rules>);
+  <lowercase> <B-rules> <theory_error>;
+  <lowercase> <theory_error>;
+  <theory_error>;)
+
+(define <end>
+  [[] O] -> [[] O]
+  [I O] -> [I #\Escape])
+
+(defcc <datatype_error>
+  -*- := (error "Syntax error in datatype here;~%~% ~A" [-*- | -s-]);)
+
+(defcc <theory_error>
+  -*- := (error "Syntax error in theory here;~%~% ~A" [-*- | -s-]);)
+
+(defcc <A-rules>
+   <A-rule> <A-rules> := [<A-rule> | <A-rules>];
+   <A-rule> := [<A-rule>];)
+
+(define raise-datatype-syntax-error
+   Code -> (error "Syntax error in datatype definition beginning here ~%~% ~A" Code))
+
+(defcc <B-rules>
+   <B-rule> <B-rules> := [<B-rule> | <B-rules>];
+   <B-rule> := [<B-rule>];)
+
+(define raise-theory-syntax-error
+   Code -> (error "Syntax error in datatype definition beginning here ~%~% ~A" Code))
+
+(defcc <A-rule>
+    <A-preamble> <sequents> <underline> <sequent> <semi-colon>
+     := [<A-preamble> <sequents> underline <sequent>];
+    <A-preamble> <simple_sequents> <double_underline> <simple_sequent> 
+     := [<A-preamble> <simple_sequents> doubleunderline <simple_sequent>];)
+
+(defcc <B-rule>
+    <B-preamble> <sequents> <underline> <sequent> <semi-colon>
+     := [<B-preamble> <sequents> underline <sequent>];)
+
+(defcc <A-preamble> 
+     commit! <side-conditions> := (append <side-conditions> [commit!]);
+     <side-conditions> := <side-conditions>;)
+
+(defcc <B-preamble>
+  <title> <side-conditions> := [<title> | <side-conditions>];
+  <side-conditions> := <side-conditions>;)  
+
+(defcc <title>
+   name <lowercase> := [name <lowercase>];
+   name [<lowercase> <natnum>] := [name [<lowercase> <natnum>]];)
+
+(defcc <natnum>
+   -*- := (if (and (integer? -*-) (> -*- 0)) -*- #\Escape);)
+
+(defcc <lowercase>
+  -*- := (if (and (symbol? -*-) (not (variable? -*-))) -*- #\Escape);)
+
+(defcc <side-conditions>
+   <side-condition> <side-conditions> := [<side-condition> | <side-conditions>];
+   <side-condition> := [<side-condition>];
+   <e> := [];)
+  
+(defcc <side-condition>
+   if <item> := [if <item>];
+   let <item1> <item2> := [let <item1> <item2>];)
+
+(defcc <item1>
+  <item> := <item>;)
+
+(defcc <item2>
+  <item> := <item>;)
+
+(defcc <item>
+   -*- := -*-;)
+
+(defcc <sequents>
+  <sequent> <semi-colon> <sequents> := [<sequent> | <sequents>];
+  <sequent> <semi-colon> := [<sequent>];
+  <e> := [];)
+
+(defcc <simple_sequents>
+  <simple_sequent> <simple_sequents> := [<simple_sequent> | <simple_sequents>];
+  <simple_sequent> := [<simple_sequent>];)
+
+(defcc <simple_sequent>
+ <formula> <semi-colon> := [[] <formula>];)
+
+(defcc <semi-colon>
+  -*- := (if (= -*- ;) -*- #\Escape);)
+
+(defcc <sequent> 
+   <formulae> >> <formula> := [<formulae> <formula>];
+   <formula> := [[] <formula>];)
+
+(defcc <formulae> 
+   <formula> <comma> <formulae> := [<formula> | <formulae>];
+   <formula> := [<formula>];
+   <e> := [];)
+
+(defcc <comma>
+   ++;)
+
+(defcc <formula>
+  <ob> : <type> := [(cons->@c (curry <ob>)) : (normalise_type <type>)];
+  <ob> := (cons->@c <ob>);)
+
+(define cons->@c
+  X -> (subst @c cons X))
+
+(defcc <type>
+  -*- := (if (or (underline? -*-) 
+                 (or (double_underline? -*-)
+                      (element? -*- [; >> :]))) #\Escape (curry_type -*-));)
+
+(defcc <ob>
+  [<obs>] := <obs>;
+   -*- := (if (or (underline? -*-) 
+                 (or (double_underline? -*-)
+                     (element? -*- [; >> :]))) #\Escape -*-);)
+
+(defcc <obs>
+   <formula> <obs> := [<formula> | <obs>];
+   <e> := [];) 
+
+(defcc <underline>
+  -*- := (if (underline? -*-) -*- #\Escape);)
+
+(defcc <double_underline>
+  -*- := (if (double_underline? -*-) -*- #\Escape);)
+
+(define double_underline?
+  X -> (and (symbol? X) (double_underlines? (explode X))))
+
+(define underlines?
+  [] -> true
+  [#\_ | Chars] -> (underlines? Chars)
+  _ -> false)
+
+(define underline?
+  X -> (and (symbol? X) (underlines? (explode X))))
+
+(define double_underlines?
+  [] -> true
+  [#\= | Chars] -> (double_underlines? Chars)
+  _ -> false) 
+
+\Compile the rules of the theory.\
+(define compile-theory
+   L B-Rules -> (compile-theory-help L B-Rules 1))
+
+\Compile each rule alloting it a number.\
+(define compile-theory-help
+   _ [] _ -> []
+   L [B-Rule | B-Rules] N -> (do (compile-theory-rule L B-Rule N)
+                                         (compile-theory-help L B-Rules (+ N 1))))
+
+\Typecheck the rule, compile it and place it on a property list, if there
+  is a name of the rule, generate the appropriate refinment rule.\
+(define compile-theory-rule
+  L B-Rule N -> (do (typecheck-refinement-rule L B-Rule N)
+                         (put-prop L N 
+                               (process_asm_to_functions (gensym "f") (asm B-Rule functional)))
+                         (generate_refinement_function L B-Rule N)))
+
+\Typecheck the conclusion of the rule and its premisses.\
+(define typecheck-refinement-rule 
+  L [[[name Name] | Sides] Sequents underline [C P]] _
+    -> (and (refinement-integrity-check L C P Name)
+               (refinement-correctness-check L C P Sequents Sides Name))
+  L [Sides Sequents underline [C P]] N
+    -> (and (refinement-integrity-check L C P N)
+               (refinement-correctness-check L C P Sequents Sides N))) 
+
+\Typecheck the conclusion of the rule.\
+(define refinement-integrity-check
+   L C P R -> (let Context (build_patt_env (extract_variables [C P]))
+                   (let Conclusion [@p (stvars-but-bound (@c-wffs C)) (stvars P)] 
+                     (let Type (normalise_type [[list wff] * wff])
+                     (if (= (typechecks? Context Conclusion Type) false)
+                         (raise-result-error R L)
+                         true)))))
+
+(define stvars-but-bound 
+  X -> (concat && X) 	where (variable? X) 
+  [let X Y Z] -> [let X (stvars-but-bound Y) (subst X (concat && X) (stvars-but-bound Z))]
+  [/. X Y] -> [/. X (subst X (concat && X) (stvars-but-bound Y))]
+  [X | Y] -> (MAPCAR stvars-but-bound [X | Y])
+  X -> X)
+
+\Raise an error in the result.\
+(define raise-result-error
+   R L -> (error "type failure in conclusion of rule ~A of theory ~A~%" R L))
+
+\Typecheck the premisses of the rule.\
+(define refinement-correctness-check
+   L C P TheSequents Sides R -> 
+    (let Context (normalise_type_env
+                     (stvars [[(@c-wffs C) : [list wff]] 
+                               [(cons->@c P) : wff] 
+                               [Assumptions : [list wff]] 
+                               [Notes : [list note]]
+                               [Parameters : [list parameter]]
+                               [Sequents : [list [[list wff] * wff]]]]))
+       (let Conclusion (stvars-but-bound (construct_conclusion Sides (@c-sequents TheSequents))) 
+          (let Type (normalise_type [list [[list wff] * wff]])
+            (if (= (typechecks? Context Conclusion Type) false)
+                (raise-result-error R L)
+                true)))))
+
+\Put the premisses in cons form.\
+(define @c-sequents
+  [] -> []
+  [[C P] | Sequents] -> [@c [@p (@c-wffs C) (cons->@c P)] (@c-sequents Sequents)])
+
+\Put the wffs in cons form.\
+(define @c-wffs
+  [] -> []
+  [Wff | Wffs] -> [@c (cons->@c Wff) (@c-wffs Wffs)])
+
+\Put the side conditions in checkable form.\
+(define construct_conclusion
+   [] Sequents -> Sequents
+   [[if P] | Sides] Sequents -> [if P (construct_conclusion Sides Sequents) []] 
+   [[let X Y] | Sides] Sequents -> [let X Y (construct_conclusion Sides Sequents)])
+
+\Raise an error in the premisses.\
+(define raise-premisses-error
+   R L -> (error "type failure in premisses of rule ~A of theory ~A~%" R L))
+
+\Generate the refinement function from the rule.\
+(define generate_refinement_function
+  L [Sides Sequents underline [C P]] N -> (grf* L Sides N))
+
+\Generate the refinement function from the rule by plugging the holes in a string.\
+(define grf*
+  _ [] _ -> []
+  L [[name [F M]] | _] N -> (do (compile-string
+                                     (let Parameters (rpt_times M)
+			(FORMAT NIL
+                                      "(define ~A
+                                         ~{~A ~} Goals -> (refine ~A ~A (list ~{~A ~}) Goals))" 
+                                         F Parameters L N Parameters)))
+                                    (newfuntype* F (constr_tactic_type M))
+                                    (FORMAT T "~A : ~A~%" F (constr_tactic_type M)))
+  L [[name F] | _] N -> (do (compile-string
+                                     (FORMAT NIL
+                                      "(define ~A
+                                          Goals -> (refine ~A ~A NIL Goals))" F L N))
+                                    (newfuntype* F [goals --> goals])
+                                    (FORMAT T "~A : (goals --> goals)~%" F))
+  _ _ _ -> ok)
+
+\Call to a refinement rule.\
+(DEFUN refine (Theory N Params Goalstack)
+   (INCF *inferences*)
+   (LET ((F (get-prop Theory N 'IDENTITY)))
+          (FUNCALL F Goalstack Params)))
+
+\Generate N formal parameters.\
+(define rpt_times
+  0 -> []
+  N -> [(gensym "Param") | (rpt_times (- N 1))])
+
+\Construct the type of the refinement rule.\
+(define constr_tactic_type
+   0 -> [goals --> goals]
+   N -> [parameter --> (constr_tactic_type (- N 1))])
+
+\The ASM is the Abstract Sequents Machine - here ASM instructions are turned into code.\
+(define process_asm_to_functions
+  F [match P and then Instrs]
+   -> (compile-string
+         (FORMAT NIL "(define ~A
+           (list (cons (@p Context ~S) Sequents) Notes Proof) Parameters <- (let Accum NIL ~S)
+           Goals _ -> Goals)"
+         F P (process_constraint_functions Instrs))))
+
+\Compile the code in a string into executable Lisp.\
+(define compile-string
+   String -> (EVAL (READ-FROM-STRING String)))
+
+\Generate the hard code from the ASM.\
+(define process_constraint_functions
+   [[find Q with constraints Constraints | _] | Instrs]
+    -> (let G (gensym "g")
+           (do (generate_search_function G Q Constraints Instrs)
+                [G | (append Constraints [[append Accum Context] [] Sequents Notes Proof Parameters])]))
+   [in [prove sequents [] | _]] -> [collect_or_return [list Sequents Notes Proof]]
+   [in Instr] -> [collect_or_return [let Assumptions [append Accum Context] (process_out_call Instr)]])
+
+\Either collects the goals into a list if collect is used else returns the goals.\
+(DEFUN collect_or_return (Goals)
+   (COND ((EQUAL Goals #\Escape) Goals)
+            ((BOUNDP '*collect*) (PUSH Goals *collect*) #\Escape)
+            (T Goals)))
+
+(DEFUN fail-if (F X)
+  (IF (EQ (FUNCALL F X) 'true) 
+       #\Escape
+       X))
+
+\Qi's version of bagof in Prolog.\
+(DEFUN collect (Theory N Parameters Goals)
+  (PROGV '(*collect*) '(())
+            (refine Theory N Parameters Goals)
+            *collect*))
+
+\Process the side conditions.\
+(define process_out_call
+  [if P then Instr] -> [if P (process_out_call Instr) #\Escape]
+  [let X be Y in Instr] -> [let X Y (process_out_call Instr)]
+  [prove sequents S | _] -> [list (compose_sequents S) Notes Proof])
+
+\Process the premisses of the sequent.\
+(define compose_sequents
+   [] -> Sequents
+   [[[] P] | S] -> [cons (@p Assumptions P) (compose_sequents S)]
+   [[Context P] | S] -> [cons (@p [append [list | Context] Assumptions] P) (compose_sequents S)])
+
+\Does the constraint propagation stuff.\
+(define generate_search_function
+   G Q Constraints Instrs
+     -> (compile-string
+                (FORMAT NIL "(define ~A
+                   ~{~S ~}(cons ~S Context) Accum Sequents Notes Proof Parameters <- ~S
+                   ~{~S ~}(cons C1234 Context) Accum Sequents Notes Proof Parameters
+                    -> (~A ~{~S ~}Context (cons C1234 Accum) Sequents Notes Proof Parameters)
+                   ~{~S ~}_ _ _ _ _ _ -> #\\Escape)"
+             G Constraints Q (process_constraint_functions Instrs) Constraints 
+             G Constraints Constraints)))
+
+\Compile the datatype.\
+(define compile-datatype
+   L A-Rules -> (compile_logic_string (compile-datatype-help L A-Rules)))
+
+\Unpacks the double underline stuff which is like a macro.\
+(define compile-datatype-help
+   L [] -> []
+   L [A-Rule | A-Rules] -> [(compile-datatype-rule L A-Rule) | (compile-datatype-help L A-Rules)]
+				where (single_underline? A-Rule)
+   L [A-Rule | A-Rules] -> (compile-datatype-help L
+                                 (append (unfold_double_underline A-Rule) A-Rules)))
+
+\Is the rule single underlined?\
+(define single_underline?
+  [Sides Sequents underline Sequent] -> true
+  _ -> false)
+
+\Unpack a double underlined rule into two single lined rules.\
+(define unfold_double_underline
+   [Sides Sequents Underline [[] P]] 
+   -> (let P* (gensym "P")
+       [[Sides Sequents underline [[] P]]
+        [Sides  [[(insert_as_assumptions Sequents) P*]] underline  [[P] P*]]]))
+
+(define insert_as_assumptions
+  [] -> []
+  [[[] P] | Sequents] -> [P | (insert_as_assumptions Sequents)])
+  
+\Compile datatype rules into Horn clauses.\
+(define compile_logic_string
+   Code -> (defprolog (FORMAT NIL "~{~{ ~S~}.~%~%~}" Code)))
+
+\Call the ASM on a rule and tell it that its gonna be compiled to Horn clause logic.\
+(define compile-datatype-rule
+  L A-Rule -> (interp_asm L (asm A-Rule logic)))
+
+\Put in the mode declarations and interpret the ASM.\
+(define interp_asm
+  L [match P and then Instrs] 
+     -> (let Tail (ia* Instrs)
+           (if (empty? Tail)
+               [L [(insert_type_mode_decl P) Context]]
+               [L [(insert_type_mode_decl P) Context] :- | Tail])))
+
+\Interpret the ASM instructions.\
+(define ia*
+   [[find Q with constraints Constraints                            
+              in Context 
+              and generate new context 
+              NewContext] | Instrs]
+     -> (let Find (gensym "find")
+                      (do (generate_search_clause Find Q Constraints)
+                           [Find (generate_search_literal Constraints Context NewContext) 
+                              | (ia* Instrs)]))
+    [in Output] -> (ia-output Output)) 
+
+\Make a search literal.\
+(define generate_search_literal
+   Constraints Context NewContext -> (append Constraints [Context NewContext]))
+
+\Generate a search clause.\
+(define generate_search_clause
+   Find Q Constraints
+        -> (defprolog
+       (FORMAT NIL "~%~%~A(~{~S ~}(mode [~S | Context59739] -) Context59739).
+                         ~%~A(~{~S ~}(mode [P59739 | Context59739] -) [P59739 | NewContext59739])
+                          :- ~A(~{~S ~}Context59739 NewContext59739)."
+             Find Constraints (insert_type_mode_decl Q) Find Constraints Find Constraints))) 
+
+\Insert mode declarations.\
+(define insert_type_mode_decl
+   [X : A] -> [mode [(insert_type_mode_decl X) : [mode A +]] -]
+   [X | Y] -> (MAPCAR insert_type_mode_decl [X | Y])
+   X -> X)
+
+\Turn side conditions into literals and cuts.\
+(define ia-output
+  [if P then Instr] -> [when! [P] | (ia-output Instr)]
+  [let X be Y in Instr] -> [is! [X Y] | (ia-output Instr)]
+  [commit to proving sequents Sequents in Context] -> [! | (ia-sequents Sequents Context)]
+  [prove sequents Sequents in Context] -> (ia-sequents Sequents Context))
+
+\Turn the premisses of the sequent rule into calls to the type checker.\
+(define ia-sequents 
+  [] Context -> []
+  [[C P] | Sequents] Context 
+  -> [typecheck [P (cons_each C Context)] | (ia-sequents Sequents Context)])
+
+\Consify the contents of the list of assumptions.\
+(define cons_each
+  [] Context -> Context
+  [X | Y] Context -> [cons X (cons_each Y Context)])
+
+(define create_clause_head
+  L P -> [L (insert_type_mode_decl [mode P -]) Context])  
+
+\The Abstract Sequents Machine - takes the internal representation of the sequent
+  and turns out virtual instructions; parameterised by whether its logic or functional
+  programming thats needed.\
+(define asm
+  [Sides Sequents underline [C P]] Prog
+     -> [match P and then  
+            (tail-sequent C Sides Sequents (extract_variables P) Context Prog)])
+
+\Calculate the constraints.\
+(define tail-sequent
+   [] Sides Sequents _ Context Prog -> [in (sides-sequent Sides Sequents Context)]
+   [Q | Qs] Sides Sequents Back Context Prog
+    -> (let QVs (extract_variables Q)
+         (let Forward (extract_variables [Qs Sides Sequents])
+          (let NewContext (gensym "NewContext")
+          [[find Q with constraints (calculate_constraints Prog QVs Back Forward)                          
+              in Context 
+              and generate new context NewContext]
+           | (tail-sequent Qs Sides Sequents (union QVs Back) NewContext Prog)]))))   
+ 
+(define calculate_constraints
+  logic QVs Back Forward -> (intersection QVs (union Back Forward)) 
+  functional _ Back _ -> Back)
+
+(define intersection
+   [] _ -> []
+   [X | Y] Z -> [X | (intersection Y Z)]	where (element? X Z)
+   [_ | Y] Z -> (intersection Y Z))
+
+\Generate ASM instructions for side conditions.\
+(define sides-sequent 
+  [] Sequents Context -> (out-sequents Sequents Context)
+  [[if P] | Sides] Sequents Context -> [if P then (sides-sequent Sides Sequents Context)]
+  [[name N] | Sides] Sequents Context -> (sides-sequent Sides Sequents Context)
+  [commit!] Sequents Context -> [commit to proving sequents O in Context]
+  [[let X Y] | Sides] Sequents Context -> [let X be Y in (sides-sequent Sides Sequents Context)]) 
+
+(define out-sequents
+   O Context -> [prove sequents O in Context])
+
+\---------------------- The Qi Read-Evaluate-Print Loop -------------------------------------\
+
+\Read evaluate print loop.\
+\Modified in 7.1 to fit CMU Lisp.\
+(DEFUN qi ()
+ (PROG ()
+    (licence)
+    (credit) 
+    LOOP    (initialise_environment)
+                    (prompt) 
+                    (FORCE-OUTPUT)
+                    (read-evaluate-print) 
+    (GO LOOP)))
+
+(DEFUN read-evaluate-print ()
+   (HANDLER-CASE 
+      (LET ((Input (lineread)))            
+            (record_input_on_history)
+             (toplevel Input))
+             (ERROR (condition) (PRINC condition))))  
+
+\Prints the licence request.  Not done in commercial version.\ 
+(DEFUN licence ()
+  (COND ((NOT *licence*)
+   (FORMAT T "~%Qi is distributed without warranty under the terms of the GPL licence.~%")
+   (FORMAT T "You may not change or remove any copyright notices attached to this software.~%~%")
+   (FORMAT T "1. I agree to the terms of the GPL licence.~%")
+   (FORMAT T "2. I do not agree to the terms of the GPL licence.~%")
+   (FORMAT T "3. I want to read the GPL licence and come back to this.~%~%")
+   (FORMAT T "Choose: ")
+   (LET ((Answer (READ)))
+       (COND ((EQ Answer 1) (agree))
+                ((EQ Answer 2) (disagree))
+                ((EQ Answer 3) (lookat-GPL))
+                (T (FORMAT T "~%~%This is not a valid answer.~%~%")  (licence))) )  )))
+
+(DEFUN agree ()
+   (FORMAT T "~%Thankyou.  Qi will be initialised to accept your agreement.~%")
+   (FORMAT T "You will not be queried again.~%")
+   (SETQ *licence* T)
+   (save))
+ 
+(DEFUN disagree ()
+   (quit))
+
+(DEFUN  lookat-GPL ()
+   (ED "GPL.txt")
+   (licence)) 
+              
+\Record the input on the history global.\
+(DEFUN record_input_on_history ()
+   (PUSH (NREVERSE *read-user-input-characters*) *history*))    
+
+\Initialise environment - set calls to 0 for trace package
+                               set logical inferences to 0 for type checker
+                               destroy all functions granted temporary signatures
+                               reset the set of temporary signatures to [].\
+(DEFUN initialise_environment ()
+       (SETQ *call* 0)
+       (SETQ *logical-inferences* 0)
+       (MAPC 'destroy *tempsigs*)
+       (SETQ *tempsigs* NIL)
+       (SETQ *read-user-input-characters* NIL))
+
+\The current version.\
+(DEFVAR *version* "version 7.1")
+
+\Prints credits.\
+(define credit
+ -> (do (FORMAT T  "~%Qi 2007, Copyright (C) 2001-2007 Mark Tarver~%")
+              (FORMAT T  "www.lambdassociates.org~%")
+              (FORMAT T  "~A~%" (value *version*))))
+
+\Type checker set to off by default.\
+(DEFVAR *tc* 'false)
+
+\No initial record of user input.\
+(DEFVAR *history* NIL)
+
+\Toggle the type checker.\
+(define tc
+  + -> (set *tc* true)
+  - -> (set *tc* false)
+  _ -> (error "tc expects a + or -"))
+
+\Prints prompt.\
+(define prompt
+  -> (if (value *tc*)
+         (FORMAT T  "~%~%(~A+) " (length (value *history*)))
+         (FORMAT T  "~%~%(~A-) " (length (value *history*)))))
+
+\Receives user input and dispatches it.\
+(define toplevel
+  X -> (toplevel (call_history X))	where (history-call? X)
+  X -> (toplevel_evaluate X))
+
+\Record the input on the history global.\
+(DEFUN record_input_on_history ()
+   (PUSH (NREVERSE *read-user-input-characters*) *history*))    
+
+\Is it a call to a previous input?\
+(define history-call?
+  [Call] -> (let Chars (explode Call)
+                 (element? (head Chars) [#\! #\%]))	where (symbol? Call)
+  _ -> false)
+
+\If so, get the call function and execute it.\
+(define call_history
+   [Call] -> (do (POP (value *history*))
+                    (FUNCALL (findcallfunc (explode Call)) (value *history*))))
+
+\Finds the call function.\
+(define findcallfunc
+   [#\! #\!] -> (/. History (call_by_number (1- (length History)) 0 (reverse History)))
+   [#\%] -> (/. History (print_all (reverse History) 0))
+   [#\! | Chars] -> (let Index (READ-FROM-STRING (COERCE Chars STRING))
+                              (if (integer? Index)
+                                  (/. History (call_by_number Index 0 (reverse History)))
+                                  (/. History (call_by_name (1- (length History)) Chars History))))
+   [#\% | Chars] -> (let Index (READ-FROM-STRING (COERCE Chars STRING))
+                              (if (integer? Index)
+                                  (/. History (print_by_number Index 0 (reverse History)))
+                                  (/. History (print_by_name 0 Chars (reverse History)))))) 
+
+\Call to print the history of the whole login session - triggered by %\
+(define print_all
+   [] _ -> (ERROR "")
+   [Command | History] N -> (do (print_command N Command) (print_all History (+ N 1))))
+
+\Print the record of a user input.\
+(define print_command
+   N Command -> (FORMAT T "~%~A. ~A" N (COERCE Command STRING)))
+
+\Print the record of a user input by line number.\
+(define print_by_number
+   N N [Command | _] -> (do (print_command N Command) (ERROR ""))
+   N M [_ | History] -> (print_by_number N (+ M 1) History)
+   _ _ _ -> (error "number out of range~%"))
+
+\Print the record of a user input by name of command used.\
+(define print_by_name
+  N Chars [Command | History] -> (do (print_command N Command) 
+                                                 (print_by_name (+ N 1) Chars History))	
+			      where (prefix? Chars (tail Command))
+  N Chars [_ | History] -> (print_by_name (+ N 1) Chars History)
+  _ _ _ -> (ERROR ""))
+
+\Evaluate past input by line number.\
+(define call_by_number
+   N N [Command | _] -> (do (print_command N Command)
+                                     (TERPRI)
+                                     (return_past_command Command))
+   N M [_ | History] -> (call_by_number N (+ M 1) History)
+   _ _ _ -> (error "number out of range~%"))
+
+\Evaluate past input by name.\
+(define call_by_name
+  N Chars [Command | _] -> (do (print_command N Command)
+                                          (TERPRI)
+                                        (return_past_command Command)	)	
+				where (prefix? Chars Command)
+  N Chars [_ | History] -> (call_by_name (- N 1) Chars History)
+  _ _ _ -> (error "input not recorded~%"))
+
+\Return the old command by rereading the characters back through the Qi reader.
+ Push the command as a charlist onto the history.\
+(DEFUN return_past_command (Chars)
+   (PUSH Chars *history*)
+   (LET ((Command
+            (MAPCAR 'macroexpand
+               (LET ((Stream (MAKE-STRING-INPUT-STREAM (COERCE Chars 'STRING))))
+                  (read-user-input Stream 
+                                        (READ-CHAR Stream NIL NIL) 
+                                        '(#\Space) 
+                                        1 
+                                        (@p 0 1) 
+                                        (@p 0 1) 
+                                        'false 
+                                        'false 
+                                        'eof?))))))
+    Command))
+
+\Tests for prefixhood.\
+(define prefix?
+  [] _ -> true
+  X [#\Space | Z] -> (prefix? X Z)
+  X [#\Newline | Z] -> (prefix? X Z)
+  X [#\( | Z] -> (prefix? X Z)
+  [X | Y] [X | Z] -> (prefix? Y Z)
+  _ _ -> false)
+
+\Forks depending on whether type checking is needed or not. \
+(define toplevel_evaluate
+  [[define F | Body] | _] -> (if (value *tc*)
+                                        (print-with-type (eval [define F | Body]) (typechecks? [] F Type))
+                                        (print (eval [define F | Body])))
+  [X : A] -> (if (value *tc*)
+                    (let Typecheck (typechecks? [] X (curry_type A))
+                        (if (= Typecheck false)
+                            (error "type error~%")
+                            (print-with-type (eval X) Typecheck)))
+                    (print (eval X)))
+  [X | _] -> (if (value *tc*)
+                    (let Typecheck (typechecks? [] X A)
+                        (if (= Typecheck false)
+                            (error "type error~%")
+                            (print-with-type (eval X) Typecheck)))
+                    (print (eval X))))
+
+\Print the typing.\
+(define print-with-type
+  X A -> (do (print X) (FORMAT T " : ~A" (pretty_type A))))
+
+\Replace the variables by pretty alphabetic symbols.\
+(define pretty_type
+  Type -> (mult_subst (value *alphabet*) (extract_vars Type) Type))
+
+(DEFVAR *alphabet* '(A B C D E F G H I J K L M N O P Q R S T U V W X Y Z))
+
+\Work through two lists, using subst into the third.\
+(define mult_subst
+  [] _ X -> X
+  _ [] X -> X
+  [X | Y] [W | Z] A -> (mult_subst Y Z (subst X W A)))
+
+\-----------------------------THE QI TRACE PACKAGE ---------------------------------------\
+
+\Retrieve source code for functions and insert track commands.\
+(define track
+  F -> (track_function (source_code F)))
+
+\Retrieve source code; if no code give error message.\
+(define source_code
+  F -> (let Code (get-prop F source_code [])
+         (if (empty? Code)
+             (error "error: ~A is not defined~%" F)
+             Code)))
+
+\Insert tracking code and evaluate the function.\
+(define track_function
+  [DEFUN F Params Body]
+   -> (EVAL [DEFUN F Params (insert_tracking_code F Params Body)]))
+
+\Increment the call counter, print the inputs, evaluate the body, store the result,
+ print the result and decrement the call counter.\
+(define insert_tracking_code
+  F FPARAMS BODY -> [PROGN [INCF *call*]
+                           [input_track *call* [QUOTE F] [LIST | FPARAMS]]
+                           [terpri_or_read_char]
+                           [LET [[RESULT BODY]]
+                                [output_track *call* [QUOTE F] RESULT]
+                                [DECF *call*]
+                                [terpri_or_read_char]
+                                RESULT]])
+
+(DEFVAR *step* 'false)
+
+\Sets the trace stepper.\
+(DEFUN step (X)
+   (COND ((EQ X '+) (SETQ *step* 'true))
+         ((EQ X '-)(SETQ *step* 'false))
+         (T (ERROR "step expects a + or a -.~%"))))
+
+\Forks the printing to a new line or waits for the user if stepping is needed.\
+(define terpri_or_read_char
+  -> (if (value *step*) (check_char (READ-CHAR)) (TERPRI)))
+
+\Abort on request.\
+(define check_char
+  #\^ -> (abort "")
+  _ -> true)
+
+\Prints inputs to function.\
+(define input_track
+  N F FPARAMS
+  -> (output "~%~A<~A> Inputs to ~A ~%~A ~{~S, ~} ==>" (spaces N) N F (spaces N) FPARAMS))
+
+\Prints the right number of spaces.\
+(define spaces
+ 0 -> ""
+ N -> (FORMAT NIL "  ~A" (spaces (- N 1))))
+
+\Prints the output of the function.\
+(define output_track
+  N F RESULT
+  -> (output "~%~A<~A> Output from ~A ~%~A==> ~S" (spaces N) N F (spaces N) RESULT))
+
+\Grab the old source code and compile back in again.\
+(define untrack
+  F -> (COMPILE (EVAL (source_code F))))
+
+\Dribble to the debugging file.\
+(DEFUN debug (X)
+  (DECLARE (IGNORE X)) 
+  (IF (PROBE-FILE "debug.txt") (DELETE-FILE "debug.txt")) 
+  (DRIBBLE (FORMAT NIL "~A~A" *qi_home_directory* "debug.txt"))
+  "done")
+
+\Stop dribbling to debug file.\
+(DEFUN undebug (X)
+(DECLARE (IGNORE X)) 
+ (DRIBBLE)
+ "done")
+
+\Profile code.\
+(define profile
+  Func -> (profile-help (source_code Func)))
+
+\Grab the source code, and place in profiling code
+ Create a copy of the original function that actually
+ does the processing.  Then compile the lot to byte code.\ 
+(define profile-help
+  [DEFUN F Params | Code]
+   -> (let PrfFunc (gensym "Profile")
+          (do
+           (EVAL [DEFUN F Params [profile_func F [PrfFunc | Params]]])
+           (EVAL [DEFUN PrfFunc Params | (SUBST PrfFunc F Code :TEST EQUAL)])
+           (COMPILE F)
+           (COMPILE PrfFunc) 
+           F))
+  _ -> (error "Cannot profile.~%"))
+
+\Reinstate the original code.\
+(define unprofile
+   Func -> (untrack_function Func))
+
+\Macro for inserting profiling code.\
+(DEFMACRO profile_func (F EXPR)
+   `(PROGN 
+     (LET* ((START (GET-INTERNAL-RUN-TIME))
+               (RESULT ,EXPR)
+               (FINISH (- (GET-INTERNAL-RUN-TIME) START)))
+           (put-prop 'profile-stats (QUOTE ,F) (+ (get-prop 'profile-stats (QUOTE ,F) 0) FINISH))
+           RESULT)))
+
+\Print the profile results.\
+(DEFUN profile-results (X) 
+  (FORMAT T "~{~A, ~A secs~%~}~%" (calibrate-profile (SYMBOL-PLIST 'profile-stats)))
+  (SETF (SYMBOL-PLIST 'profile-stats) NIL)
+  'profiled)
+
+\Calibrate the times to the internal timer and present as floats.\
+(define calibrate-profile
+   [] -> []
+   [F Time | Profile] -> [F (calibrate Time) | (calibrate-profile Profile)])
+
+(DEFUN calibrate (Time) (* 1.0 (/ Time INTERNAL-TIME-UNITS-PER-SECOND)))
+
+\------------------------------The QI PROOF TOOL ------------------------------------\
+
+(set *atp-credits* "Qi Proof Tool")
+
+(set *atp-prompt* ">")
+
+\Call the proof tool.\
+(define prooftool
+   - -> (do (FORMAT T "~%~%~A~%~%" (value *atp-credits*))
+               (set *inferences* 0)
+               (set *problem* [[(@p (enter_assumptions 1) (enter_conclusion))] [] []])
+               (set *start* (GET-INTERNAL-RUN-TIME))
+               (prooftool_loop (value *problem*)))
+   + -> (do (FORMAT T "~%~%~A~%~%" (value *atp-credits*))
+               (set *inferences* 0) 
+               (set *start* (GET-INTERNAL-RUN-TIME))
+               (prooftool_loop (value *problem*)))
+		where (= (BOUNDP *problem*) T)
+   + -> (error "prooftool needs a problem.~%")
+   _ -> (error "prooftool expects a + or a -.~%"))
+
+\Enter the assumptions.\
+(define enter_assumptions
+  N -> (do (output "~A. " N)
+              (let Assumption (enter_format (CAR (lineread)))
+                   (if (= Assumption ok)
+                       []
+                   (if (well_formed? Assumption)
+                       [(eval Assumption) | (enter_assumptions (+ 1 N))]
+                       (do (output "this is not a wff~%")
+                              (enter_assumptions N)))))))
+
+\Test to see if the formula is a wff.\
+(define well_formed?
+  X -> (= (typechecks? [] X wff) wff))
+
+\Allow round brackets if asked.\
+(define enter_format
+   X -> (insert_conses X) 	where (pr_rb?)
+   X -> X)
+
+\Put in the conses so it type checks and evaluates.\
+(define insert_conses
+   [X | Y] -> [cons (insert_conses X) (insert_conses Y)]
+   X -> X)
+
+\Enter the conclusion.\
+(define enter_conclusion
+  -> (do (output "~%~%?- ")
+           (let Conclusion (enter_format (CAR (lineread)))
+              (if (well_formed? Conclusion)
+                  (eval Conclusion)
+                  (do (output "this is not a wff~%")
+                      (enter_conclusion))))))
+
+\Main loop of proof tool.\
+(define prooftool_loop
+   [[] _ Proof] -> (do (set *proof* Proof) (set *thm* (CAAR (value *problem*))) (stats))
+   Goals -> (do (print-first-sequent Goals)
+                  (let Tactic (read-tactic)
+                       (prooftool_loop (apply Tactic (update-proof (value *tactic*) Goals))))))
+
+\Print the statistics of the proof.\
+(define stats
+   -> (let Time (calculate-run-time) 
+         (let Inferences (value *inferences*)
+          (do (output "~A seconds		~A refinement~P		~A RPS~%" 
+              		Time Inferences Inferences (if (= 0 Time) infinite (ROUND (/ Inferences Time))))
+            proved))))
+
+\Time proof function for ATPs.\
+(define time-proof
+   Tactic C P -> (do (set *start* (GET-INTERNAL-RUN-TIME))
+                           (set *inferences* 0) 
+                           (let Result (solved? (apply Tactic [[(@p C P)] [] []]))
+                                 (do (print-sequent (@p C P) [] 1 1 (value *inferences*))
+                                      (stats) 
+                                      (TERPRI) 
+                                       Result))))
+
+\Check if the proof is done.\
+(define solved?
+  [[] | _] -> true
+  _ -> false)
+
+\Calculate the run time.\
+(define calculate-run-time
+  -> (* 1.0 (/ (- (GET-INTERNAL-RUN-TIME) (value *start*))
+               (value INTERNAL-TIME-UNITS-PER-SECOND))))
+
+\Print the first sequent.\
+(define print-first-sequent
+   [[Sequent | Sequents] Notes Proof]
+   ->  (print-sequent Sequent Notes
+                               (length [Sequent | Sequents]) 
+                               (1+ (length Proof)) 
+                               (value *inferences*)))
+
+\Update the proof record.\            
+(define update-proof
+   Tactic [Sequents Notes Proof]
+    -> [Sequents Notes [[Sequents Notes Tactic (value *inferences*)] | Proof]])
+
+\Print sequent with info.\
+(define print-sequent
+  (@p C P) Notes N Step I 
+   -> (do (output "________________________________________________~%")
+            (output "Step ~A. [~A]			~A refinement~P~%~%" Step N I I)
+            (print-notes Notes)
+            (output "?- ")
+            (display-wff P) 
+            (output "~%~%")
+            (display-wffs 1 C)))
+
+(define print-notes
+   [] -> []
+   Notes -> (output "Notes: {~A ~}~%~%" Notes))
+
+\Display a wff.\
+(define display-wff
+   [X : A] -> (do (outputrb "~S" X) (FORMAT T " : ") (outputrb "~S" A))    where (pr_rb?)	
+   P -> (outputrb "~S" P) 						where (pr_rb?)
+   [X : A] -> (do (output "~S" X) (FORMAT T " : ") (output "~S" A))	
+   P -> (output "~S" P))
+
+\Prints a message, but using round brackets for lists.\
+(DEFUN outputrb (&REST ARGS) 
+(FORMAT T 
+  (SUBSTITUTE #\( #\[ (SUBSTITUTE #\) #\] (sanitise-string (APPLY 'FORMAT (CONS NIL ARGS))))))
+  "done")
+
+(define pr_rb?
+   -> (value *display-rb*))
+
+\Display the assumptions.\
+(define display-wffs
+   _ [] -> []
+   N [Wff | Wffs] -> (do (output "~A. " N) 
+                               (display-wff Wff) 
+                               (output "~%") 
+                               (display-wffs (+ N 1) Wffs)))
+
+\Read in a tactic.\
+(define read-tactic
+   -> (do (output "~%~A " (value *atp-prompt*))
+            (let Tactic (extract_tactic (set *tactic* (prooftool_lineread)))
+                 (if (tactic? Tactic)
+                     (eval Tactic)
+                     (do (output "error: this is not a tactic.~%") (read-tactic))))))
+
+(DEFUN prooftool_lineread ()
+ (HANDLER-CASE (MAPCAR 'enter_format (lineread)) (ERROR (condition) (query_exit))))
+
+(DEFUN query_exit ()
+ (READ-CHAR)
+ (IF (Y-OR-N-P "Exit proof? ") (ERROR "Proof aborted.~%"))
+ (output "~%~A " *atp-prompt*)
+ (prooftool_lineread))
+
+\Is it really a tactic?\
+(define tactic?
+   [back N] -> true    
+   Tactic -> (= (typechecks? [] Tactic [goals --> goals]) [goals --> goals])) 
+
+\Get the tactic.\
+(define extract_tactic
+   [Tactic] -> Tactic
+   [Tactic | Args] -> [Tactic | Args])
+
+\Go back N steps.\
+(define back
+   -1 Goals -> Goals
+   N [_ _ [[Sequents Notes Tactic Inferences] | Proof]] -> (back (1- N) [Sequents Notes Proof])
+ 		where (and (integer? N) (>= N 0))
+   _ Goals -> (do (output "Cannot process this command.~%") Goals))
+
+\Thin an assumption.\
+(define thin
+   N [[(@p C P) | Sequents] Notes Proof] -> [[(@p (thin* N C) P) | Sequents] Notes Proof])
+
+(define thin*
+  1 [_ | Y] -> Y
+  N [X | Y] -> [X | (thin* (- N 1) Y)]
+  _ X -> X)
+
+\Swap order of assumptions.\
+(define swap
+  M N [[(@p C P) | Sequents] Notes Proof] -> [[(@p (exchange M N C) P) | Sequents] Notes Proof])
+
+\Swap order of goals.\
+(define rotate
+  M N [Sequents Notes Proof] -> [(exchange M N Sequents) Notes Proof])
+
+\Swap function and help functions.\
+(define exchange
+ M N X -> X 	where (or (or (> 0 M) (> 0 N)) 
+                          (or (> M (length X)) (> N (length X))))
+ M N X -> (exchange1 M N X))
+
+(define exchange1
+  1 N [X | Y] -> (insert_nth X N [(nth N [X | Y]) | Y])
+  M N [X | Y] -> [X | (exchange1 (1- M) (1- N) Y)]
+  _ _ X -> X)
+
+(define insert_nth
+  X 1 [_ | Y] -> [X | Y]
+  X N [Y | Z] -> [Y | (insert_nth X (1- N) Z)])
+
+\Dump the proof to a file.\
+(DEFUN dump-proof (Filename)
+(LET ((AbsFileName (FORMAT NIL "~A~A" *qi_home_directory* Filename)))
+ (DRIBBLE AbsFileName) 
+ (dump-proof-help (REVERSE *proof*) 1) 
+ (DRIBBLE) 
+ Filename))
+
+(define dump-proof-help
+   [] _ -> (output "proved in ~A refinements~%~%" (value *inferences*))
+   [[[Sequent | Sequents] Notes Tactic Inferences] | Proof] Step
+    -> (do (print-sequent Sequent Notes (length [Sequent | Sequents]) Step Inferences) 
+             (output "~%~A ~{~S ~}~%" (value *atp-prompt*) Tactic)
+             (dump-proof-help Proof (+ Step 1))) )            
+
+\Change the display mode.\
+(DEFUN display-mode (Flag)
+   (COND ((EQ Flag '+) (SETQ *display-rb* 'true))
+         ((EQ Flag '-) (SETQ *display-rb* 'false))
+         (T (ERROR "display-mode expects a + or a -")))) 
+
+(DEFVAR *display-rb* 'false)
+
+\First list of assumptions.\
+(define fst-ass
+  [[(@p Ass _) | _] | _] -> Ass
+  X -> (error "fst-ass cannot process this input; ~A" X))
+
+\First conclusion.\
+(define fst-conc
+  [[(@p _ Conc) | _] | _] -> Conc
+  X -> (error "fst-ass cannot process this input; ~A" X))
+
+\Theorem introduction.\
+(define thm-intro
+  Name -> (do (write-to-file Name (thm_intro1 Name (generalise (retrieve_theorem))))
+                   (load Name)))
+
+\Grab the old theorem\
+(define retrieve_theorem
+  -> (if (empty? (BOUNDP *thm*))
+         (error "no theorem has been proved~%")
+         (value *thm*)))
+
+\Generalise it by abstracting away the old constants.\
+\Changed in 7.1.\
+(define generalise
+  (@p Ass Conc) -> (generalise* (flatten [Conc | Ass]) [Ass Conc]))
+          
+(define generalise*
+  [] Thm -> Thm
+  [X | Y] Thm -> (generalise* Y Thm) where (test_for_constant? X)
+  [X | Y] Thm -> (generalise* Y (subst (gensym "P") X Thm)))
+
+(DEFUN test_for_constant? (X)
+  (IF (FBOUNDP 'constant?)
+       (constant? X)
+       'true))
+
+(define remove-if
+   _ [] -> []
+   F [X | Y] -> (if (F X) (remove-if F Y) [X | (remove-if F Y)]))
+
+\Make the derived rule a string.\
+(define thm_intro1
+  Name [X Y] -> 
+    (mlet Ps (BUTLAST X)
+              P (head (LAST X))
+              String (make-string "theory ~A~%
+                              name ~A~%
+                              _______________________~%
+                              ~{~S, ~} ~S >> ~S; "
+                              (gensym "theory_") Name Ps P Y)
+               Explode (COERCE String LIST)
+               LChars [#\( | (append Explode [#\)])]
+               LString (COERCE LChars STRING)
+               (READ-FROM-STRING LString)))
+     
+\Number of unsolved goals.\
+(define unsolved_goals
+  [S | _] -> (length S))
+
+\Change the title of ATP.\
+(define atp-credits
+  Credits -> (set *atp-credits* Credits))
+
+\Change the prompt of ATP.\                                  
+(define atp-prompt
+  Prompt -> (set *atp-prompt* Prompt))
+
+\The list of sequents.\
+(define sequents-in 
+  [Sequents | _] -> Sequents)
+
+\Does a tactic solve a list of sequents?\
+(define provable?
+  Tactic Sequents -> (solved? (Tactic (to-goals Sequents []))))
+
+\Trace a tactic and tell it to build a proof.\
+(define prf
+  F -> (prf1 (source_code F)))
+
+\Untrace a tactic and tell it to build a proof.\
+(define unprf
+  F -> (COMPILE (EVAL (source_code F))))
+
+\Trace a tactic and tell it to build a proof.\
+(define prf1
+  [DEFUN F [Param] Body] -> (EVAL [DEFUN F [Param] [update-proof-if-needed Param [QUOTE F] Body]])   
+					where (tactic? F)
+  [_ F | _] -> (error "~A is not a tactic~%" F))
+
+\Update the proof.\
+(define update-proof-if-needed
+  Goals _ Goals -> Goals
+  _ F Goals -> (update-proof [F] Goals))
+
+\-------------------------------- QI STRUCTURES -----------------------------------------\
+
+\Structure command.\ 
+(DEFMACRO structure (&REST X) (LIST 'struct1 (LIST 'QUOTE X)))
+
+\Add the constructors, selectors, and recognisors.\
+(define struct1
+  [Name | Slots] -> (do (struct-syntax-check Name Slots)
+                        (add-to-type-discipline-selectors Name Slots)
+                        (add-constructor-type-discipline Name Slots)
+                        (add-recognisor-type-discipline Name)
+                        (add-recognisor-function Name)
+                        (make-structure Name Slots)))
+
+\Check the syntax.\
+(define struct-syntax-check
+  Name Slots
+  -> (if (and (symbol? Name) (not (variable? Name)))
+          (struct-syntax-check1 Slots)
+          (error "~A: structure expects a non-variable symbol here" Name)))
+
+(define struct-syntax-check1
+  [] -> []
+  [_] -> (error "odd number of elements in structure")
+  [X Type | Slots] -> (struct-syntax-check1 Slots)    where (and (symbol? X) (not (variable? X)))
+  [X | _] -> (error "~A: structure expects a non-variable symbol here" X))
+
+\Add the recognisor to types.\
+(define add-recognisor-type-discipline
+ Name -> (add-to-type-discipline (concat Name ?) [(gensym "Type_") --> boolean]))
+
+\Add the constructor to types.\
+(define add-constructor-type-discipline
+  Name Slots -> (let Constructor (concat make- Name)
+                           (add-to-type-discipline Constructor (structure_types Slots Name))))
+
+\Curry the types.\
+(define structure_types
+   [_ Type] Name -> [(curry_type Type) --> Name]
+   [_ Type | Structure] Name -> [(curry_type Type) --> (structure_types Structure Name)])
+
+\Add the selectors to types.\
+(define add-to-type-discipline-selectors
+  Name [] -> []
+  Name [X Type | Slots]
+  -> (let SelectorName (concat (concat Name -) X) 
+        (do (add-to-type-discipline SelectorName (curry_type [Name --> Type]))
+            (store_arity SelectorName 1)
+            (add-to-type-discipline-selectors Name Slots)))) 
+
+\Compile the recognisor function.\
+(define add-recognisor-function
+  Name -> (let RecognisorName (concat Name ?) 
+            (do (store_arity RecognisorName 1)
+                 (EVAL [DEFUN RecognisorName [x]
+                    [IF [(concat Name -P) x] 'true 'false]]))))
+
+\Build the structure.\
+(define make-structure
+  Name Slots
+   -> (let ConstructorName (concat make- Name)
+       (do (store_arity ConstructorName (/ (length Slots) 2))
+           (let Structure (remove_types_from_struct Slots)
+             (EVAL [DEFSTRUCT |
+                (append [[Name [:CONSTRUCTOR ConstructorName Structure]]] Structure)])))))
+
+(define remove_types_from_struct
+  [] -> []
+  [X _ | Slots] -> [X | (remove_types_from_struct Slots)])
+
+\-------------------------------- QI PROLOG -----------------------------------------\
+
+\Compile Prolog program in a string.\
+(define defprolog
+  String -> (compile-prolog 
+               (read-prolog-syntax 
+                 (process-prolog-chars
+                   (COERCE String LIST) []))))
+
+\Reader for Prolog.\
+(define read-prolog-syntax 
+  Chars -> (let Stream (MAKE-STRING-INPUT-STREAM (COERCE Chars STRING))
+                (let RawProlog
+                  (read-user-input Stream (READ-CHAR Stream NIL NIL) 
+                    NIL 1 (@p 0 1) (@p 0 1) false false eof?)
+                  (divide-clauses RawProlog []))))
+
+\Reader for Prolog - . replaced by &&.\
+\Modified in 7.1 to allow stops to be embedded in alphanums.\
+\I gave up on Qi-YACC! \
+(define process-prolog-chars
+  [] Chars -> (reverse Chars)
+  \This I commented out - seems redundant!
+  [#.] Chars -> (reverse [#Space #& #& #Space | Chars])\
+  [#\) #\. | Chars] AllChars -> (process-prolog-chars Chars [#\Space #\& #\& #\Space  #\)  | AllChars])
+  [Char #\! #\. | Chars] AllChars -> (process-prolog-chars Chars [#\Space #\& #\& #\Space  #\!  Char  | AllChars])
+				where (element? Char [#\, #\Space #\Newline #\Tab])
+  [#\, | Chars] AllChars -> (process-prolog-chars Chars [#\Space | AllChars])
+  [Char | Chars] AllChars -> (process-prolog-chars Chars [Char | AllChars]))
+
+\Divide the clauses. Process cuts.\  
+(define divide-clauses
+  [&&] Clause -> [(process_clause Clause)]
+  [&& | RawProlog] Clause -> [(process_clause Clause) | (divide-clauses RawProlog [])]
+  [! | RawProlog] Clause -> (divide-clauses [cut [] | RawProlog] Clause)
+  [X | RawProlog] Clause -> (divide-clauses RawProlog (append Clause [X]))
+  _ _ -> (error "~%misplaced . in Prolog program?~%"))  
+
+\&& does the job of . in Prolog and divides clauses.\
+(define divide-clauses
+  [&&] Clause -> (process_clause Clause) 
+  [&& | RawProlog] Clause -> (append (process_clause Clause) (divide-clauses RawProlog []))
+  [X | RawProlog] Clause -> (divide-clauses RawProlog (append Clause [X]))
+  _ _ -> (error "~%misplaced . in Prolog program?~%"))  
+
+\Put the clause in canonical form.\
+(define process_clause
+  [Pred Terms :- | Body] 
+  -> [(process_literal [Pred | (convert_terms Terms)]) :- (process_body Body)]
+				where (and (predicate? Pred) (list? Terms))
+  [Pred Terms] -> [(process_literal [Pred | (convert_terms Terms)]) :- []] 
+                                                where (and (predicate? Pred) (list? Terms))
+  Clause -> (error "~A: is not a legal clause.~%" Clause))
+
+\Convert complex terms to list format with mode declarations.\
+(define convert_terms
+   Terms -> (remove_redundant_modes (map (/. X (convert_term X +)) Terms)))
+
+\Remove iterated mode declarations.\
+(define remove_redundant_modes
+  [mode [mode X Mode] _] -> [mode (remove_redundant_modes X) Mode]
+  [mode [cons X [mode Y Mode]] Mode] -> (remove_redundant_modes [mode [cons X Y] Mode])
+  [X | Y] -> (map remove_redundant_modes [X | Y])
+  X -> X)
+
+\Insert mode declarations.\
+(define convert_term
+   [mode X Mode] _ -> [mode (convert_term X Mode) Mode]
+   [cons X Y] Mode -> [cons (convert_term X Mode) (convert_term Y Mode)]
+   [X] Mode -> [cons [mode (convert_term X Mode) Mode] [mode [] -]]
+   [X | Y] Mode -> [cons [mode (convert_term X Mode) Mode] [mode (convert_term Y Mode) -]]
+   X Mode -> [mode X Mode])
+
+\Test for predicate\
+(define predicate?
+  Pred -> true	where (and (symbol? Pred) (not (variable? Pred)))
+  Pred -> (error "~A is not a predicate.~%" Pred))
+
+\Process literals - rename predicates.\
+(define process_literal 
+   [Pred | Terms] -> [(rename_pred Pred) | Terms])
+
+\Rename predicates to preserve name space.\
+(define rename_pred
+   qi_= -> =*
+   F -> (concat F *))
+
+\Divide the tail into literals.\
+(define process_body
+  [Pred Terms] -> [(process_literal [Pred | Terms])]  	
+			where (and (predicate? Pred) (list? Terms))
+  [Pred Terms | Body] -> [(process_literal [Pred | Terms]) | (process_body Body)] 	
+			where (and (predicate? Pred) (list? Terms))
+  Body -> (error "~%syntax error in ~A~%" Body))
+
+\Group clauses into procedures, and compile them.\
+(define compile-prolog
+  X -> (MAPCAR compile_clauses 
+             (group_clauses (MAPCAR test-for-naive-abs X))))
+
+\Perform naive abstraction if complexity is too great.\
+(define test-for-naive-abs
+   [[F | Terms] :- Body] -> [[F | Terms] :- Body] 
+	where (< (complexity Terms) (value *complexity-bound*))
+   Clause -> (do (FORMAT T
+                        "note: space optimisation; performing naive abstraction on ~S~%" 
+                            (remove_modes Clause))
+                     (output "mode declarations will be ignored for this clause.~%")
+                     (naive-abs Clause))
+
+(set *complexity-bound* 129)
+
+\Measures the complexity of the head.\
+(define complexity
+   [] -> 1
+   [Term | Terms] -> (* (complexity* Terms +) (complexity Terms)))
+
+\Complexity is a product of the complexity of the modes of the terms.\
+(define complexity*
+  [mode X Mode] _ -> (complexity* X Mode)
+  X _ -> 1	where (or (= X _) (variable? X))
+  [cons X Y] Mode -> (* (mode_complexity Mode) 
+                                (complexity* X Mode) 
+                                (complexity* Y Mode))
+  _ Mode -> (mode_complexity Mode))
+
+\Mode complexity is either 1 or 2.\
+(define mode_complexity
+  + -> 2
+  - -> 1
+  X -> (error "unknown mode ~S.~%" X))
+
+\Performs naive abstraction. See AUM paper.\
+(define naive-abs
+   [[F | Terms] :- Body] 
+    -> (let AssocTerms (map assocterm Terms)
+           (let Vars (map fst AssocTerms)
+              [[F | Vars] :- [[=* Vars (remove_modes Terms)] | Body] ])))
+
+\Associates a fresh variable with a term.\
+(define assocterm
+   Term -> (@p (gensym "V") Term))
+
+\Group clauses into Horn clause procedures.\
+(define group_clauses
+  Program -> (group_clauses_help Program []))
+
+\Help function to above.\
+(define group_clauses_help
+  [] Clause_Groups -> (map reverse Clause_Groups)
+  [Clause | Clauses] Clause_Groups 
+   -> (group_clauses_help Clauses (place_in_group Clause Clause_Groups)))
+
+\Places a Horn clause into a procedure.\
+(define place_in_group
+  Clause [] -> [[Clause]]
+  Clause [Group | Groups] -> [[Clause | Group] | Groups]	where (belongs? Clause Group)
+  Clause [Group | Groups] -> [Group | (place_in_group Clause Groups)])
+
+\Tests to see if the clause belongs in the procedure.\
+(define belongs?
+  [[F | X] :- | B] [[[F | Y] :- | C] | _] -> true
+  _ _ -> false)
+
+\Compile each clause of a Horn clause procedure into a program.\
+(define compile_clauses
+  [[[F | X] :- Body] | Clauses]
+    -> (let Fparams (make_fparams X)
+           (COMPILE (EVAL (record_source
+                    [DEFUN F (append Fparams [Continuation])
+                         (insert_catch [Body Clauses]
+                            [OR | (map (/. Y (compile_clause Y Fparams))
+                                                  [[[F | X] :- Body] | Clauses])])])))))
+
+(define insert_catch
+   Clauses Code -> [PROG [] [RETURN Code]]  	where (uses_cut? Clauses)
+   _ Code -> Code)
+
+(define uses_cut?
+   Clauses -> (occurs? [cut*] Clauses))
+    
+\Assemble Lisp function.\
+(define make_fparams
+  X -> (reverse (fparams (length X))))
+
+\Make formal parameters\
+(define fparams
+  0 -> []
+  N -> [(concat FP N) | (fparams (- N 1))])
+
+\Compile a Horn clause.\
+(define compile_clause
+   Clause Fparams -> [PROG2 [INCF *logical-inferences*]
+                                      (interpret_aum (aum (linearise_clause Clause) Fparams))])
+
+\Interpret AUM instructions.\
+(define interpret_aum
+ [if Test then A else Fail] -> [AND (interpret_aum Test) (interpret_aum A)]
+				where (= Fail FAIL)
+ [let V be X in Y] -> [LET [[V (interpret_aum X)]] (interpret_aum Y)]
+ [the result of dereferencing X] -> [lazyderef (interpret_aum X)] 
+ [if Test then A else B] -> [IF (interpret_aum Test) (interpret_aum A) (interpret_aum B)] 
+ [V is a non-empty list] -> [CONSP V]
+ [V is a variable] -> [var? (interpret_aum V)]
+ [the head of X] -> [CAR (interpret_aum X)]
+ [the tail of X] -> [CDR (interpret_aum X)]
+ [rename the variables in [] and then X] -> (interpret_aum X)
+ [rename the variables in Vs and then X] -> [LET (rename_vars Vs) (interpret_aum X)]
+ [bind X to V in Y] -> [PROGV [LIST V] [LIST (quote X)] (interpret_aum Y)] 
+ [V is identical to C] -> (if (or (empty? C) (symbol? C))
+                                   [EQ V (quote C)]
+                                   [EQUAL V (quote C)])
+ [pop the stack] -> [popstack Continuation]
+ [call the continuation Continuation] -> (process_continuation Continuation)
+ Fail -> NIL	where (= Fail FAIL)
+ X -> X) 
+
+\Top level query driver.\
+(define ask 
+  Query -> (do (set *logical-inferences* 0) 
+                    (let Answer (time (run-query Query (extract_variables Query)))
+                      (do (output "~%~A logical inference~P~%" 
+                               (value *logical-inferences*) 
+                               (value *logical-inferences*))
+                           (if Answer
+                                yes
+                                no)))))
+
+(define query-prolog
+   Calls -> (let Result (popstack (prolog-calls Calls))
+                    (IF (NULL Result)
+                        false
+                        (IF (EQ T Result)
+                            true
+                            Result))))
+
+(define prolog-calls 
+  Calls -> (EVAL (tinker (pc-help (map process_literal Calls)))))
+
+(define tinker
+   X -> [FUNCTION [LAMBDA [] T]]	where (= Continuation X)
+   X -> [QUOTE X]			where (variable? X)
+   [X | Y] -> [X | (map tinker Y)]
+   X -> X)
+
+\Run query engine.\
+(define run-query
+  [F | X] Vs -> (query-prolog [[F | X] [answer Vs]])
+  X _ -> (ERROR "~S is not a valid query.~%" X))
+
+\Build the continuation.  Look out for evaluable predicates.\
+(define process_continuation
+  [[F | X] | Calls] 
+   -> [(mapF F) | (append (map (/. Term (process_evaluable_terms (mode_deref F) Term)) X) 
+                        [(pc-help Calls)])] 
+          where (evaluable_predicate? F)
+  [[cut*]] -> [OR [popstack Continuation] [RETURN NIL]]
+  [[cut*] | Calls] -> [OR (process_continuation Calls) [RETURN NIL]]
+  [[F | X] | Calls] -> [F | (append (map quote X) [(pc-help Calls)])])
+
+\Adopt the suitable mode of dereferencing.\ 
+(define mode_deref
+   is* -> lazyderef
+   when* -> lazyderef
+   eval* -> lazyderef
+   _ -> deref)
+
+\Reduce F!* to F.\
+(define mapF
+   is!* -> is*
+   when!* -> when*
+   eval!* -> eval*
+   F -> F)
+
+\Definition of Qi Prolog when.\
+(define when*
+   true Continuation -> (popstack Continuation)
+   false _ -> []
+   X _ -> (error "when expects a boolean, not ~S.~%" X))
+
+\Definition of Qi Prolog eval.\
+(define eval*
+   _ Continuation -> (popstack Continuation))
+
+\Definition of Qi Prolog is.\
+(define is*
+   Var Val Continuation -> (PROGV [Var] [Val] (popstack Continuation)))
+
+\Definition of evaluable predicate.\
+(define evaluable_predicate?
+   F -> (element? F [is* when* eval* is!* when!* eval!*]))
+
+\Insert quotes for evaluable terms.\
+(define process_evaluable_terms
+   Deref [F | X] -> [F | (map (/. Term (process_evaluable_terms Deref Term)) X)]
+   Deref X -> [Deref X]    where  (variable? X)
+   _ X -> X		where (or (number? X) (or (character? X) (string? X)))
+   - [] -> []
+   _ X -> [GENSYM "V"]	where (= _ X)
+   _ X -> [QUOTE X])
+
+\Process the continuation into a series of closures.\
+(define pc-help
+  [] -> Continuation
+  [[F | X] | Calls] 
+   -> [FUNCTION [LAMBDA [] 
+           (append [(mapF F) | (map (/. Term (process_evaluable_terms (mode_deref F) Term)) X)] 
+               [(pc-help Calls)])]] where (evaluable_predicate? F)
+  [[cut*] | Calls] -> [FUNCTION [LAMBDA [] [OR [popstack (pc-help Calls)] [RETURN NIL]]]]
+  [[F | X] | Calls] -> [FUNCTION [LAMBDA [] (append [F | (map quote X)] [(pc-help Calls)])]]
+  X -> (ERROR "~S is not a valid continuation.~%"))
+ 
+\Standardisation apart.\
+(define rename_vars
+  [] -> []
+  [V | Vs] -> [[V [GENSYM "V"]] | (rename_vars Vs)])
+
+\Put quotes into expressions.\
+(define quote
+  [cons X Y] -> [CONS (quote X) (quote Y)]
+  [X | Y] -> [LIST | (map quote [X | Y])]	where (list? [X | Y])
+  [X | Y] -> [CONS (quote X) (quote Y)]
+  V -> V 	where (variable? V)
+  X -> X	where (or (number? X) (or (string? X) (character? X)))
+  [] -> []
+  X -> [GENSYM "V"]	where (= _ X)
+  X -> [QUOTE X])
+
+\Test for a list.\
+(define list? 
+   [] -> true
+   [_ | Y] -> (list? Y)
+   _ -> false)
+
+\Make the clause left linear and pass unification into the tail.\
+(define linearise_clause
+  [Head :- Body] -> (let V (first_rpted_var Head) 
+                            (if (= V left_linear)
+                                [Head :- Body]
+                                (linearise_clause (left_linearise_clause V [Head :- Body])))))
+
+(define first_rpted_var
+   Head -> (fpr-help (flatten Head)))
+
+(define fpr-help
+   [V | X] -> V	where (and (variable? V) (element? V X))
+   [_ | X] -> (fpr-help X)
+   X -> left_linear)
+
+(define flatten
+   [[X | Y] | Z] -> (append (flatten [X | Y]) (flatten Z))
+   [X | Y] -> [X | (flatten Y)]
+   X -> X)
+
+(define left_linearise_clause
+   V [Head :- Body] -> (let V* (gensym "V") 
+                               [(rename_V V V* Head) :- [[(unifpred) V V*] | Body]]))
+
+(define unifpred
+   -> =!* where (value *occurs*)
+   -> =*)
+
+(set *occurs* false)
+
+(define occurs-check
+   + -> (set *occurs* true)
+   - -> (set *occurs* false)
+   _ -> (error "occurs-check expects a + or a -"))
+
+(define rename_V
+   V V* V -> V*
+   V V* [X | Y] -> (let Renamed (rename_V V V* X)
+                            (if (= Renamed X)
+                                [X | (rename_V V V* Y)]
+                                [Renamed | Y]))
+   _ _ X -> X)
+
+\Make mu applications for the AUM to do mu reduction.\
+(define aum
+   [[F | Terms] :- Body] Fparams 
+    -> (mu_reduction (make_mu_application [mu Terms (continuation_call Terms Body)] Fparams)))
+
+(define continuation_call
+  Terms Body -> (cc-help (free_variables_in_body Terms Body) Body))
+
+(define free_variables_in_body 
+   Terms Body -> (fv_decl_help (flatten Terms) (flatten Body)))
+
+(define fv_decl_help
+   _ [] -> []
+   Terms [V | X] -> (adjoin V (fv_decl_help Terms (remove V X)))	
+					where (free_variable_in? V Terms)
+   Terms [V | X] -> (fv_decl_help Terms X))
+
+(define adjoin
+   V Vs -> (if (element? V Vs) Vs [V | Vs]))
+
+(define free_variable_in?
+  V Terms -> (and (variable? V) (not (element? V Terms))))
+
+\Build the AUM instructions for tail.\   
+(define cc-help
+   [] [] -> [pop the stack]  
+   Vs [] -> [rename the variables in Vs and then [pop the stack]]
+   [] Body -> [call the continuation Body]
+   Vs Body -> [rename the variables in Vs and then [call the continuation Body]])
+
+\Build mu applications\
+(define make_mu_application 
+   [mu [] Body] [] -> Body
+   [mu [Term | Terms] Body] [FP | FPs] 
+   -> [[mu Term (make_mu_application [mu Terms Body] FPs)] FP])
+
+\Mu reduction - see AUM paper.\
+(define mu_reduction
+   [[mu [mode X +] Body] FP] -> (mu_reduction [[mu X Body] FP])
+   [[mu [mode [mode X +] -] Body] FP] -> (mu_reduction [[mu X Body] FP])
+   [[mu [mode [mode X -] -] Body] FP] -> (mu_reduction [[mu [mode X -] Body] FP])
+   [[mu U Body] FP] -> (mu_reduction Body)		   	where (= _ U)
+   [[mu [mode U -] Body] FP] -> (mu_reduction Body)		where (= _ U)
+   [[mu V Body] FP] -> (subst FP V (mu_reduction Body)) 	where (ephemeral_variable? V FP)
+   [[mu V Body] FP] -> [let V be FP in (mu_reduction Body)] 	where (variable? V)
+   [[mu [mode V -] Body] FP] -> (mu_reduction [[mu V Body] FP])	where (variable? V)
+   [[mu [mode C -] Body] FP] -> (let Z (gensym "X") 
+                                [let Z be [the result of dereferencing FP]
+                                   in [if [Z is identical to C] 
+                                       then (mu_reduction Body) 
+                                       else  
+			   FAIL]])		where (prolog_constant? C)    
+   [[mu C Body] FP] -> (let Z (gensym "X") 
+                                [let Z be [the result of dereferencing FP]
+                                   in [if [Z is identical to C] 
+                                       then (mu_reduction Body) 
+                                       else  
+			   [if [Z is a variable]
+			       then
+                                           [bind C to Z in (mu_reduction Body)]
+                                            else FAIL]]])		where (prolog_constant? C)
+   [[mu [mode [cons X Y] -] Body] FP] -> (let Z (gensym "X")
+				[let Z be [the result of dereferencing FP]
+     				    in [if [Z is a non-empty list]
+                                    	           then 
+         				           (mu_reduction [[mu [mode X -] [[mu [mode Y -] Body] 
+                                                                                   [the tail of Z]]] [the head of Z]])
+                                     	          else FAIL]])
+   [[mu [cons X Y] Body] FP] -> (let Z (gensym "X")
+				[let Z be [the result of dereferencing FP]
+     				    in [if [Z is a non-empty list]
+                                    	           then 
+         				           (mu_reduction [[mu X [[mu Y Body] 
+                                                                                   [the tail of Z]]] [the head of Z]])
+                                     	          else  [if [Z is a variable]
+					     then 
+                                                                [rename the variables in (extract_variables [X Y]) 
+                                        	                   and then [bind (remove_modes [cons X Y]) to Z 
+							in (mu_reduction Body)]]
+                           			    else FAIL]]])
+  X -> X)
+
+\Remove mode declarations from the code\
+(define remove_modes
+   [mode X +] -> (remove_modes X)
+   [mode X -] -> (remove_modes X)
+   [X | Y] -> (map remove_modes [X | Y])
+   X -> X)
+
+\An ephemeral variable just passes a parameter.\
+(define ephemeral_variable?
+  V FP -> (and (variable? V) (variable? FP)))
+
+\Extract the set of variables from an expression.\
+(define extract_variables
+   X -> [X]	where (variable? X)
+   [X | Y] -> (union (extract_variables X) (extract_variables Y))
+   _ -> [])
+
+\Prolog constant.\
+(define prolog_constant?
+   [] -> true
+   X -> true 	where (symbol? X)
+   X -> true 	where (number? X)
+   X -> true 	where (boolean? X)
+   X -> true 	where (string? X)
+   X -> true 	where (character? X)
+   _ -> false)
+
+\Prolog unification.\
+(DEFUN =* (X Y Continuation)
+  (lzy=* (lazyderef X) (lazyderef Y) Continuation))
+
+\Help function - passes unification into the continuation.\
+(DEFUN lzy=* (X Y Continuation)
+   (COND ((EQUAL X Y) (popstack Continuation))
+         ((var? X) 
+          (PROGV (LIST X) (LIST Y) (popstack Continuation)))
+         ((var? Y) 
+          (PROGV (LIST Y) (LIST X) (popstack Continuation)))
+         ((AND (CONSP X) (CONSP Y))
+          (lzy=* (lazyderef (CAR X)) (lazyderef (CAR Y))
+              (FUNCTION (LAMBDA () 
+			(lzy=* (lazyderef (CDR X)) 
+				(lazyderef (CDR Y)) 
+  				 Continuation)))))
+         (T NIL)))
+
+\Prolog ==.\
+(DEFUN ==* (X Y Continuation)
+  (lzy==* (lazyderef X) (lazyderef Y) Continuation))
+
+\Help function - passes == into the continuation.\
+(DEFUN lzy==* (X Y Continuation)
+   (COND ((EQUAL X Y) (popstack Continuation))
+         ((AND (CONSP X) (CONSP Y))
+          (lzy==* (lazyderef (CAR X)) (lazyderef (CAR Y))
+              (FUNCTION (LAMBDA () 
+			(lzy==* (lazyderef (CDR X)) 
+				(lazyderef (CDR Y)) 
+  				 Continuation)))))
+         (T NIL)))
+
+\Occurs check unification.\
+(DEFUN =!* (X Y Continuation)
+  (lzy=!* (lazyderef X) (lazyderef Y) Continuation))
+
+\Help function - passes unification into the continuation.\
+(DEFUN lzy=!* (X Y Continuation)
+   (COND ((EQUAL X Y) (popstack Continuation))
+         ((AND (var? X) (EQ (occurs? X (deref Y)) 'false))
+          (PROGV (LIST X) (LIST Y) (popstack Continuation)))
+         ((AND (var? Y) (EQ (occurs? Y (deref X)) 'false))
+          (PROGV (LIST Y) (LIST X) (popstack Continuation)))
+         ((AND (CONSP X) (CONSP Y))
+          (lzy=!* (lazyderef (CAR X)) (lazyderef (CAR Y))
+              (FUNCTION (LAMBDA () 
+			(lzy=!* (lazyderef (CDR X)) 
+				(lazyderef (CDR Y)) 
+  				 Continuation)))))
+         (T NIL)))
+
+\Pop the goal stack.\
+(DEFUN popstack (Continuation)  (FUNCALL Continuation))
+
+\Answer literal.\
+(DEFUN answer* (Vars Continuation)
+  (DECLARE (IGNORE Continuation))
+  (COND ((NULL Vars) T)
+         (T (MAPC (FUNCTION 
+         (LAMBDA (V) (output "~%~A = ~S~%" V (deref V)))) Vars)
+            (NOT (Y-OR-N-P "~%More?")))))
+
+\Eager dereferencing.\
+(DEFUN deref (x)
+  (COND ((CONSP x) (CONS (deref (CAR x)) (deref (CDR x))))
+        ((boundvar? x) (deref (SYMBOL-VALUE x)))
+        (T x)))
+
+\Test for bound variable.\
+(DEFUN boundvar? (X)
+  (AND (var? X) (BOUNDP X)))
+
+\Cuts Prolog computation and returns value.\
+(DEFUN return* (Val Continuation)
+  (DECLARE (IGNORE Continuation))
+  (INCF *logical-inferences*)
+  (deref Val))
+
+\Prolog fail.\
+(DEFUN fail* (Continuation)
+  (DECLARE (IGNORE Continuation))
+  (INCF *logical-inferences*)
+  NIL)
+
+\Bind a variable to an unevaluated value.\
+(DEFUN bind* (Var Val Continuation)
+   (PROGV (Var) (Val) (popstack Continuation)))
+
+\Prolog negation-as-failure.\
+(DEFUN not* (F Terms Continuation)
+  (INCF *logical-inferences*)
+  (IF (NOT (APPLY (concat F '*) (APPEND Terms (LIST (FUNCTION (LAMBDA () T))))))
+       (popstack Continuation)
+       NIL) )
+
+\Call a literal.\
+(DEFUN call*(F Terms Continuation)
+  (APPLY (concat F '*) (APPEND Terms (LIST Continuation))))
+
+\Bagof in Prolog.\
+(DEFUN bagof* (Var Pred Terms Out Continuation)
+   (INCF *logical-inferences*)
+   (LET ((Store (GENSYM "Store")))
+          (SET Store NIL)
+          (APPLY (concat Pred '*)
+                    (APPEND Terms 
+                               (LIST (FUNCTION (LAMBDA () (store* Var Store))))))
+          (LET ((BAG (NREVERSE (SYMBOL-VALUE Store))))
+                 (MAKUNBOUND Store)
+                 (PROGV (LIST Out) 
+                           (LIST BAG)
+                           (popstack Continuation)))))               
+
+(DEFUN store* (Var Store)
+  (INCF *logical-inferences*)
+  (SET Store (CONS (deref Var) (SYMBOL-VALUE Store)))
+  NIL)
+
+\Lazy dereferencing.\
+(DEFUN lazyderef (X)
+  (IF (AND (SYMBOLP X) 
+              (BOUNDP X) 
+              (NOT (NULL X))
+              (NOT (EQ X T))
+              (UPPER-CASE-P (CHAR (SYMBOL-NAME X) 0)))
+        (lazyderef (SYMBOL-VALUE X))
+        X))               
+
+\Prolog variable.\
+(DEFUN var? (X)
+  (AND (SYMBOLP X) 
+       (NOT (NULL X))
+       (NOT (EQ X T))
+       (UPPER-CASE-P (CHAR (SYMBOL-NAME X) 0))))
