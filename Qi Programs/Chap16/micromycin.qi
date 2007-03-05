@@ -1,0 +1,180 @@
+(if-without-checking "switch on the typechecker first!~%")
+
+(synonyms 
+  explanation [note]
+  note wff
+  exp-function (wff --> boolean)
+  theory symbol
+  problem wff
+  rule-counter number
+  symptom wff
+  disease wff
+  diagnosis explanation
+  recommendation wff
+  parameter exp-function)
+
+(datatype wff
+
+ P : wff; Q : wff;
+ =================
+ [P and Q] : wff;
+
+ Pred : symbol; Term : symbol;
+ =======================
+ [Pred Term] : wff;)
+
+(datatype globals
+
+   ________________________________________
+   (value *temperature-options*) : (list symptom);
+  
+    _________________________________
+   (value *skin-options*) : (list symptom);
+
+   __________________________________
+   (value *pain-options*) : (list symptom);)
+
+(theory diagnosis_rule_base
+
+   P; Q;
+   _________
+   [P and Q];
+
+   [disease smallpox];
+   ___________________
+   [symptom scabs];
+
+   [disease smallpox];
+   ___________________________
+   [symptom high_temperature];
+
+   [disease smallpox];
+   ___________________
+   [symptom no_pain];
+
+   [disease cholera];
+   __________________
+   [symptom red_rash];
+
+   [disease cholera];
+   _______________________
+   [symptom stomach-ache];
+
+  [disease cholera];
+  ___________________________
+  [symptom high_temperature];)
+
+(theory treatment_rule_base
+
+  P; Q;
+  _________
+  [P and Q];
+
+  [recommend sulfamazole_100mg];
+  _____________________________
+  [disease cholera];
+
+  [recommend penicillin_50mg];
+  _____________________________
+  [disease smallpox];)
+
+(theory exptheory
+
+  name (cull-explanation 1)
+  if ((head Parameters) P)
+  let Notes (if (element? P Notes) Notes [P | Notes])
+  _____________________
+  P;)
+
+(define micro-MYCIN
+  {A --> string}
+   _ -> (let Symptoms (gather-symptoms start)
+          (let Disease (diagnose Symptoms)
+            (if (no-idea? Disease)
+                (error "no diagnosis")
+                (do (output "Diagnosis is ~A~%" (conjoin Disease))
+                    (let Recommendation (recommend-treatment Disease)
+                     (if (no-idea? Recommendation)
+                         (error "no recommendation")
+                         (output "Recommendation is ~A~%"
+                            (conjoin Recommendation)))))))))
+
+(define no-idea?
+  {[wff] --> boolean}
+   [] -> true
+   _ -> false)
+
+(set *temperature-options* [[symptom high_temperature]
+                            [symptom low_temperature]
+                            [symptom normal_temperature]])
+
+(set *skin-options*  [[symptom scabs]
+                      [symptom red_rash]
+                      [symptom normal_skin]])
+
+(set *pain-options* [[symptom headache]
+                     [symptom stomach-ache]
+                     [symptom no_pain]])
+
+(define gather-symptoms
+  {A --> [symptom]}
+   _ ->  [ (query-symptoms (value *temperature-options*))
+          (query-symptoms (value *skin-options*))
+          (query-symptoms (value *pain-options*))])
+
+(define query-symptoms 
+  \ a professional system would put a validation on the number chosen by the
+    user to make sure it is a natural number > 0 within the proper range. \ 
+  {[symptom] --> symptom}
+  Symptoms -> (do (display-symptoms 1 Symptoms) 
+                  (nth (input+ : number) Symptoms)))
+
+(define display-symptoms
+  {number --> [symptom] --> string}
+  _ [] -> (output "~%~%Choose Symptom: ")
+  N [Symptom | Symptoms] -> (do (output "~A. ~A~%" N Symptom)  
+                                (display-symptoms (+ N 1) Symptoms)))
+
+(define diagnose 
+  {[symptom] --> diagnosis}
+   Symptoms -> (explain (conjoin Symptoms) disease? diagnosis_rule_base))
+
+(define disease?
+   {disease --> boolean}
+   [disease _] -> true
+   _ -> false)
+
+(define recommend-treatment
+  {diagnosis --> [recommendation]}
+  Diagnosis -> (explain (conjoin Diagnosis)
+                        recommendation? treatment_rule_base))
+
+(define conjoin
+  {[wff] --> wff}
+  [P] -> P
+  [P | Ps] -> [P and (conjoin Ps)])
+
+(define recommendation?
+   {recommendation --> boolean}
+   [recommend _] -> true
+   _ -> false)
+
+(define explain
+  {problem --> exp-function --> theory --> explanation}
+  Problem ExpF Theory -> (let Sequents [(@p [] Problem)]
+                              (let Goals (to-goals Sequents [])
+                                 (bc ExpF Goals Theory 1))))
+
+(define bc
+  {exp-function --> goals --> theory --> rule-counter --> explanation}
+  ExpF Goals _ _ -> (notes-in Goals)  where (solved? Goals)
+  ExpF Goals Theory N -> []           where (> N (theory-size Theory))
+  ExpF Goals Theory N <- (fail-if empty?
+                           (let NewGoals (refine Theory N [] Goals)
+                             (if (= NewGoals Goals)
+                                 []
+                                 (bc ExpF
+                                     (cull-explanation ExpF NewGoals)
+                                     Theory 1))))
+  ExpF Goals Theory N -> (bc ExpF Goals Theory (+ 1 N)))
+

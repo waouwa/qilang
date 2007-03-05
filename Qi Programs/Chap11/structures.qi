@@ -1,0 +1,10 @@
+(structure ship 
+            name string             
+            nationality symbol            
+            tonnage number        
+            length number) 
+
+(make-ship "Sea Venus" Greek 1055.9 568.8)
+
+(ship-tonnage (make-ship "Sea Venus" Greek 1055.9 568.8))
+

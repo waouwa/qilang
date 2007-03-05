@@ -1,0 +1,40 @@
+(define slow-goldbachs-conjecture
+  \begin the conjecture with the first even number > 2\
+  start -> (slow-goldbachs-conjecture1 4))
+
+(define slow-goldbachs-conjecture1
+  \is the number the sum of two primes? Try the next even number\
+  N -> (slow-goldbachs-conjecture1 (+ N 2))  where (sum-of-two-primes? N)
+  \else return that number and halt. Goldbach's conjecture is wrong\
+  N -> N)
+
+(define sum-of-two-primes?
+  \test to see if N is the sum of two primes;
+  we begin by fixing the first prime at 2\
+  N -> (sum-of-two-primes*? 2 N))
+
+(define sum-of-two-primes*?
+  \is the prime we are testing > N,
+  then return false; N is not the sum of two primes\
+  Prime N -> false         where (> Prime N)
+  \else find if the prime we are using can be summed
+  with another prime to give N. Start the count at 2.\
+  Prime N -> true   where (sum-of? Prime 2 N)
+  \if not take the next prime up from the one used and repeat\
+  Prime N -> (sum-of-two-primes*? (next-prime (+ 1 Prime)) N))
+
+(define sum-of?
+  \if N is the sum of two primes then report it and return true
+  (do evaluates n inputs in turn returning the value of the last one)\
+  Prime1 Prime2 N -> (do (output "~A is the sum of ~A and ~A~%" N Prime1 Prime2)
+                            true)         where (= N (+ Prime1 Prime2))
+  \if the sum of the two primes is > N return false;
+  no point in using bigger primes!\
+  Prime1 Prime2 N -> false       where (> (+ Prime1 Prime2) N)
+  \otherwise try the next prime up\
+  Prime1 Prime2 N -> (sum-of? Prime1 (next-prime (+ 1 Prime2)) N))
+
+(define next-prime
+  X -> X          where (prime? X)
+  X -> (next-prime (+ 1 X)))
+

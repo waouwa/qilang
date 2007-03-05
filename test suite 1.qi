@@ -1,0 +1,292 @@
+(test
+
+(if true 4 (i)) 
+(and false (i)) 
+(and 6 7) 
+(or true 7) 
+(input) 
+(cd "Qi Programs") 
+(load "Chap2/fruit machine.qi") 
+(fruit-machine start) 
+(load "Chap3/prime.qi") 
+(prime? 1000003) 
+(load "Chap3/mutual.qi") 
+(even? 56) 
+(odd? 77) 
+(load "Chap3/change.qi") 
+(count-change 100) 
+(load "Chap3/goldbach version 1.qi") 
+\(slow-goldbachs-conjecture start) \
+(load "Chap4/cartprod.qi") 
+(cartesian-product [1 2 3] [a b c]) 
+(load "Chap4/powerset version 1.qi") 
+(powerset [1 2 3 4]) 
+(load "Chap4/powerset version 2.qi") 
+(powerset [1 2 3 4]) 
+(load "Chap4/goldbach version 2.qi") 
+\(goldbachs-conjecture start) \
+(load "Chap5/bubble version 1.qi") 
+(bubble-sort [1 2 3 4 5 6 7 8 9]) 
+(load "Chap5/bubble version 2.qi") 
+(bubble-sort [1 2 3 4 5 6 7 8 9]) 
+(load "Chap5/newton version 1.qi") 
+(newtons-method 4.5) 
+(load "Chap5/newton version 2.qi") 
+(newtons-method 4.5) 
+(load "Chap5/spreadsheet.qi") 
+
+(assess-spreadsheet
+  [[jim [wages (/. Spreadsheet (get frank wages Spreadsheet))]
+        [tax (/. Spreadsheet (* (get frank tax Spreadsheet) .8))]]
+   [frank [wages 20000]
+          [tax (/. Spreadsheet (* .25 (get frank wages Spreadsheet)))]]]) 
+
+
+(load "Chap6/semantic net.qi") 
+(assert [Mark_Tarver is_a man]) 
+(assert [man type_of human]) 
+(query [is Mark_Tarver human]) 
+(load "Chap7/proplog version 1.qi") 
+(backchain q [[q <= p] [q <= r] [r <=]]) 
+(backchain q [[q <= p] [q <= r]]) 
+(load "Chap7/proplog version 2.qi") 
+(backchain q [[q <= p] [q <= r] r]) 
+(backchain q [[q <= p] [q <= r]]) 
+(load "Chap8/parser.qi") 
+(parse ["the" "boy" "likes" "the" "girl"]) 
+(parse ["the" "cat" "likes" "the" "girl"]) 
+(eval [* 3 4]) 
+
+(eval [define f
+        [cons X [cons Y Z]] -> Z]) 
+
+(f [1 2 3]) 
+(load "Chap8/metaprog.qi") 
+
+(generate_parser [sent --> np vp  np --> name  np  --> det n 
+                  name --> "John"  name --> "Bill"  name --> "Tom" 
+                  det  --> "the"  det  --> "a"  det  --> "that" 
+                  det  --> "this"  n --> "girl"  n --> "ball" 
+                  vp --> vtrans np  vp --> vintrans  vtrans --> "kicks" 
+                  vtrans --> "likes"  vintrans --> "jumps" 
+                  vintrans --> "flies"]) 
+
+(parse sent ["the" "girl" "likes" "the" "ball"]) 
+(parse sent ["the" "girl" "likes" "the" "cat"]) 
+
+(defprolog 
+   "likes(willi, X) :- likes(mark, X).
+    likes(mark, chocolate).
+    likes(mark, tea).") 
+
+(ask [likes mark X]) 
+
+(query-prolog [[bagof X likes[mark X] Y] [return Y]]) 
+
+(defprolog
+ 
+"prop(A,C) :- pr([[~, C] | A]).
+ 
+pr(A) :- member([~ P], A), member(P, A), !.
+pr(A) :- consistent(A), !, fail().
+pr((mode [[P,&,Q] | A] -)) :- !, pr([P,Q | A]).
+pr((mode [[P,<=>,Q] | A] -)) :- !, pr([[P,=>,Q],[Q,=>,P] | A]).
+pr((mode [[P,=>,Q] | A] -)) :- !, pr([[[~ P],v,Q] | A]).
+pr((mode [[~ [P,v,Q]] | A] -)) :- !, pr([[~,P],[~,Q] | A]).
+pr((mode [[~ [P,&,Q]] | A] -)) :- !, pr([[[~,P],v,[~,Q]] | A]).
+pr((mode [[~ [P,=>,Q]] | A] -)) :- !, pr([P,[~,Q] | A]).
+pr((mode [[~ [P,<=>,Q]] | A] -)) :- !, pr([[~,[[P,=>,Q],v,[~,[Q,=>,P]]]] | A]).
+pr((mode [[P,&,Q] | A] -)) :- !, pr([P,Q | A]).
+pr((mode [[P,v,Q] | A] -)) :- !, pr([P | A]), !, pr([Q | A]).
+pr((mode [P | Ps] -)) :- append(Ps, [P], Qs), !, pr(Qs).
+ 
+consistent([]).
+consistent([P | Ps]) :- when((symbol? P)), !, consistent(Ps).
+consistent([[~ P] | Ps]) :- when((symbol? P)), !, consistent(Ps).
+ 
+append([], X, X).
+append((mode [X | Y] -) W [X | Z]) :- append(Y, W, Z).
+ 
+member(X, (mode [X | _] -)).
+member(X, (mode [_ | Y] -)) :- member(X, Y).") 
+
+(ask [prop [ ]  [[[p <=> q] <=> r] <=> [p <=> [q <=> r]]]]) 
+
+(defprolog 
+
+"map(_, [], []).
+map(Pred,[X | Y],[W | Z]) :- call(Pred(X,W)), map(Pred, Y, Z).
+
+consit(X,[1 X]).") 
+
+(ask [map consit [1 2 3] Out]) 
+
+(defprolog
+"different(X,Y) :- not(==(X,Y)).") 
+
+ (ask [different a b]) 
+
+ (ask [different a a]) 
+
+(defprolog 
+
+"likes(john, X) :- tall(X), pretty(X).
+tall(mary).
+pretty(mary).") 
+
+(query-prolog [[likes john Who]]) 
+(query-prolog [[likes john Who] [return Who]]) 
+
+(defcc <sent>
+<np> <vp>;) 
+
+(defcc <det>
+the; a;) 
+
+(defcc <np>
+<det> <n>;
+<name>;) 
+
+(defcc <n>
+cat; dog;)  
+
+(defcc <name>
+Bill; Ben;) 
+
+(defcc <vp>
+<vtrans> <np>;) 
+
+(defcc <vtrans>
+likes; chases;) 
+
+(compile <sent> [the cat likes the dog]) 
+
+(compile <sent> [the cat likes the canary]) 
+
+(compile <vp> [chases the cat]) 
+
+(defcc <bcs>
+[<bs>] [<cs>];) 
+
+(defcc <bs>
+b <bs>; 
+b;) 
+
+(defcc <cs>
+c <cs>; 
+c;) 
+
+(compile <bcs> [[b b b] [c c]]) 
+
+(defcc <sent>
+<np> <vp> := (question <np> <vp>);) 
+
+(define question
+NP VP -> (append [Is it true that your father] (append VP [?]))) 
+
+(compile <sent> [the cat likes the dog])  
+
+(defcc <as>
+a <as> := [b | <as>];
+a := [b];) 
+
+(compile <as> [a a a]) 
+
+(defcc <find-digit>
+<digit> <morestuff> := <digit>;
+<digit> := <digit>;
+-*- <find-digit> := <find-digit>;) 
+
+(defcc <morestuff>
+-*- <morestuff>; 
+-*-;) 
+
+(defcc <digit>
+0; 1; 2; 3; 4; 5; 6; 7; 8; 9;) 
+
+(compile <find-digit> [a v f g 6 y u]) 
+
+(defcc <find-digit>
+<digit> <morestuff> := -s-;
+<digit> := -s-;
+-*- <find-digit> := <find-digit>;) 
+
+(compile <find-digit> [a v f g 6 y u]) 
+
+(defcc <asbscs>
+<as> <bs> <cs>;) 
+
+(defcc <as>
+a <as>; 
+a ;) 
+
+(defcc <bs>
+b <bs>; 
+b; 
+<e>;) 
+
+(defcc <cs>
+c <cs>; 
+c;) 
+
+(compile <asbscs> [a a a b b c]) 
+
+(defcc <bs>
+b <bs>; 
+b; 
+<e> := [ ];) 
+
+(compile <asbscs> [a a a b b c]) 
+
+(defcc <find-digit>
+<digit> <morestuff> := <digit>;
+<digit> := <digit>;
+-*- <find-digit> := <find-digit>;) 
+
+(defcc <digit>
+-*- := (one_of -*- [0 1 2 3 4 5 6 7 8 9]);) 
+
+(define one_of
+X Y -> (if (element? X Y) X #\Escape)) 
+
+(compile <find-digit> [a v f g 6 y u]) 
+
+(defcc <anbncn>
+<as> <bs> <cs> := (if (equal-length? [<as> <bs> <cs>]) 
+                             (appendall [<as> <bs> <cs>]) 
+                             #\Escape);) 
+
+(defcc <as>
+a <as>; 
+a;) 
+
+(defcc <bs>
+b <bs>; 
+b;) 
+
+(defcc <cs>
+c <cs>; 
+c;) 
+
+(define equal-length?
+[] -> true
+[L] -> true
+[L1 L2 | Ls] -> (and (= (length L1) (length L2)) (equal-length? [L2 | Ls])))
+
+(define appendall
+[] -> []
+[L | Ls] -> (append L (appendall Ls))) 
+
+(compile <anbncn> [a a a b b b c c c]) 
+
+(compile <anbncn> [a a a b b b c c]) )
+
+
+
+
+
+
+
+
+
+

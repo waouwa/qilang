@@ -1,0 +1,149 @@
+\Dear User  
+
+Some of these Pelletier problems are unsolvable for the incomplete AUTOFOL.
+Some of the unprovable problems are solvable in AUTOFOLC.  
+You are invited to improve the implementation as an exercise.\
+
+(if-without-checking "switch on the typechecker first!~%")
+
+(time-proof autofolc [] [[p => q] => [[~ q] => [~ p]]])
+(time-proof autofolc [] [[~ [~ p]] <=> p])
+
+(time-proof autofolc [] [[[p v q] => [p v r]] => [p v [q => r]]])
+(time-proof autofolc [] [p v [~ p]])
+(time-proof autofolc [] [p v [~ [~ [~ p]]]])
+(time-proof autofolc [] [[[p => q] => p] => p])
+(time-proof autofolc [] [[[p v q] & [[[~ p] v q] & [p & [~ q]]]] => [~ [[~ p] v [~ q]]]])
+(time-proof autofolc [[q => r] [r => [p & q]] [p => [q v r]]] [p <=> q]) 
+
+(time-proof autofolc [] [p <=> p])
+
+(time-proof autofolc [] [[p => q] v [q => p]])
+
+(time-proof autofolc 
+  [[some x [p [x]]] 
+   [all x [[f [x]] => [[~ [g [x]]] & [r [x]]]]] 
+   [all x [[p [x]] => [[g [x]] & [f [x]]]] ]
+   [[all x [[p [x]] => [q [x]]]] v [some x [[p [x]] & [r [x]]]]]] 
+  [some x [[q [x]] & [p [x]]]])
+
+(time-proof autofolc
+  [[[some x [p [x]]] <=> [some x [q [x]]]] 
+   [all x [all y [[[p [x]] & [q [y]]] => [[r [x]] <=> [s [y]]]]]]]
+  [[all x [[p [x]] => [r [x]]]] => [all x [[q [x]] => [s [x]]]]])
+
+(time-proof autofolc 
+            [[all x [[[f [x]] v [g [x]]] => [~ [h [x]]]]]
+             [all x [[[g [x]] => [~ [i [x]]]] => [[f [x]] & [h [x]]]]]]
+            [all x [i [x]]])
+
+(time-proof autofolc 
+     [[~ [some x [[f [x]] & [[g [x]] v [h [x]]]]]]
+	[some x [[i [x]] & [f [x]]]]
+	[all x [[~ [h [x]]] => [j [x]]]]]
+     [some x [[i [x]] & [j [x]]]])
+
+(time-proof autofolc 
+[[all x [[[f [x]] & [[g [x]] v [h [x]]]] => [i [x]]]] 
+ [all x [[[i [x]] & [h [x]]] => [j [x]]]] 
+ [all x [[k [x]] => [h [x]]]]]
+ [all x [[[f [x]] & [k [x]]] => [j [x]]]])
+
+(time-proof autofolc 
+[[all x [some y [f [x y]]]]
+ [all x [some y [g [x y]]]]
+ [all x
+  [all y [[[f [x y]] v [g [x y]]]
+  => [all z [[[f [y z]] v [g [y z]]] => [h [x z]]]]]]]]
+ [all x [some y [h [x y]]]])
+
+(time-proof autofolc [] [~ [some x [all y [[f [y x]] <=> [~ [f [y y]]]]]]])
+
+(time-proof autofolc 
+  [[all z [some y [all x [[f [x y]] <=> [[f [x z]] & [~ [f [x x]]]]]]]]] 
+   [~ [some z [all x [f [x z]]]]])
+
+(time-proof autofolc 
+ [[all x [[f [x]] => [[some y [[g [y]] & [h [x y]]]]
+ & [some y [[g [y]] & [~ [h [x y]]]]]]]] 
+  [some x [[j [x]] & [all y [[g [y]] => [h [x y]]]]]]]
+ [some x [[j [x]] & [~ [f [x]]]]])
+
+(time-proof autofolc [] [some y [all x [[f [y]] => [f [x]]]]]) 
+
+(time-proof autofolc [] [some x [all y [all z [[[p [y]] => [q [z]]] => [[p [x]] => [q [x]]]]]]]) 
+
+(time-proof autofolc [] [[all x [all y [some z [all w [[[p [x]] & [q [y]]] => [[r [z]] & [s [w]]]]]]]]
+    => [[some x [some y [[p [x]] & [q [y]]]]] => [some z [r [z]]]]])
+
+(time-proof autofolc 
+            [] 
+            [some x [some y [[p [x y]] <=> [all x [all y [p [x y]]]]]]])
+
+(time-proof autofolc 
+ [[all z
+  [some w
+     [all x
+      [some y
+        [[[p [x z]] => [p [y w]]] & [[p [y z]] & [[p [y w]]
+        => [some u [q [u w]]]]]]]]]] 
+[all x [all z [[~ [p [x z]]] => [some y [q [y z]]]]]] 
+[[some x [some y [q [x y]]]] => [all x [r [x x]]]]]
+[all x [some y [r [x y]]]])
+
+(time-proof autofolc 
+[[all x
+  [[f [x]] &
+    [[all y [[[g [y]] & [h [x y]]] => [j [x y]]]] =>
+      [all y [[[g [y]] & [h [x y]]] => [k [y]]]]]]] 
+ [~ [some y [[l [y]] & [k [y]]]]] 
+ [some x
+  [[f [x]] &
+    [[all y [[h [x y]] => [l [y]]]]
+    & [all y [[[g [y]] & [h [x y]]] => [j [x y]]]]]]]]
+ [some x [[f [x]] & [~ [some y [[g [y]] & [h [x y]]]]]]])
+ 
+\********* All the preceding are provable by AUTOFOL. ************ \
+
+\********* All the following are unprovable by AUTOFOL. ********** \
+
+\blows the stack!
+
+ (time-proof autofolc [] [[~ [p => q]] => [q => p]])
+
+ (time-proof autofolc [] [[[~ p] => q] <=> [[~ q] => p]]) 
+blows the stack!
+
+(time-proof autofolc [] [[p => q] <=> [[~ p] v q]]) 
+
+(time-proof autofolc [[some x [p => [f [x]]]]  [some x [[f [x]] => p]]]
+                    [some x [p <=> [f [x]]]])
+
+(time-proof autofolc [] [[all x [p <=> [f [x]]]] => [p <=> [all x [f [x]]]]])
+
+(time-proof autofolc [[all x [[p [x]] => [[q [x]] v [r [x]]]]] 
+ 			   [some x [[p [x]] & [r [x]]]] 
+ 			   [[~ [some x [p [x]]]] => [some x [q [x]]]] 
+ 			   [all x [[[q [x]] v [r [x]]] => [s [x]]]]]
+                    [~ [some x [[s [x]] & [q [x]]]]])
+
+(time-proof autofolc 
+[[some x [[f [x]] & [~ [g [x]]]]] 
+ [all x [[f [x]] => [h [x]]]] 
+ [all x [[[j [x]] & [i [x]]] => [f [x]]]] 
+ [[some x [[h [x]] & [~ [g [x]]]]] => [all x [[i [x]] => [~ [h [x]]]]]]]
+[all x [[j [x]] => [~ [i [x]]]]])
+
+(time-proof autofolc 
+  [[all x [[p [x]] => [all y [q [y]]]]]
+[[all x [[q [x]] v [r [x]]]] => [some x [[q [x]] & [s [x]]]]]
+[[some x [s [x]]] => [all x [[f [x]] => [g [x]]]]]]
+[all x [[[p [x]] & [f [x]]] => [g [x]]]])
+ 
+(time-proof autofolc []
+ [[some y [all x [[f [x  y]] <=> [f [x x]]]]] =>
+  [~ [all x [some y [all z [[f [x y]] <=> [~ [f [z x]]]]]]]]])
+ 
+(time-proof autofolc [] [~ [some y [all x [[f [x y]]
+<=> [~ [some z [[f [x z]] & [f [z x]]]]]]]]])\
+

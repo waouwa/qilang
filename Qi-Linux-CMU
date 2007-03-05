@@ -1,0 +1,2 @@
+#!/bin/sh
+lisp -noinit -core Qi.core $*

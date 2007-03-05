@@ -1,0 +1,349 @@
+(if-without-checking "switch on the typechecker first!~%")
+
+(synonyms
+      
+      model ([agent] * history)
+      history [moment]
+      moment [event]
+      action term
+      event atom
+      personality  [wff]
+      tactic (goals --> goals))
+
+(datatype globals
+
+_____________________
+(value *history*) : history;
+
+_________________________
+(value *character*) : personality;
+
+_________________________
+(value *routes*) : [symbol];)
+
+\We define an agent as a structure. \
+
+(structure agent
+
+    name symbol
+    personality [wff]
+    pragmatics tactic)
+
+(datatype atom
+
+  P : symbol;  
+ __________
+  P : atom;    
+
+  if (not (= F ~))  
+  F : symbol; Terms : [term];
+ ============================
+  [F Terms] : atom;)
+
+(datatype term
+
+ Term : symbol;
+ ____________
+  Term : term;
+
+  Term : number;
+ _____________
+  Term : term;
+
+ Term : string;
+___________
+ Term : term;
+
+ Term : boolean;
+_____________
+ Term : term;
+
+  Term : character;
+_______________
+  Term : term;
+
+  F : symbol; Terms : [term];
+  ===========================
+  [F | Terms] : term;)
+
+(datatype wff
+
+     P : atom;
+    ________
+     P : wff;
+
+     if (not (= F ~))
+     [F X] : atom >> R;
+    _______________
+     [F X] : wff >> R;
+
+     if (element? C [v => &])
+     P : wff; Q : wff;
+    ===================
+     [P C Q] : wff;
+ 
+     P : wff;
+    =============
+     [~ P] : wff;
+
+     if (element? Q [some all])
+     X : symbol; R : symbol; P : wff;
+    ==================================
+     [Q X R P] : wff;)
+
+(define model
+   \Takes three inputs; routes, agents and cycles (journeys) \
+   {number --> number --> number --> history}
+    M_Routes N_Agents Cycles 
+     -> (run_model Cycles (initialise_model M_Routes N_Agents)))
+
+(define initialise_model
+  \Takes the number of routes; the number of agents;\
+  \Generates the routes; generates the agents;\
+  \Each agent is represented as a pair of beliefs and desires\
+  \The desire says that for all x such that x is a route, if x is the fastest\
+  \route for the agent and for all routes y if the agent does not travel on route y\
+  \then the agent acts to bring it about that he travels on route x\  
+   {number --> number --> model}
+    M N -> 
+    (do (set *routes* (initialise_routes M))
+        (set *character* [
+             [all x r [[[fastest [agent x]] & [all y r [~ [travels [agent y]]]]]
+                       => [todo [agent [travels agent x]]]]]     
+             [all x r [[all y r [=> [[average_speed agent x] 
+                                     [average_speed agent y]]]] 
+             => [fastest [agent x]]]]    ])
+         (@p (make-agents N (value *character*)) (set *history* []))))
+
+(define initialise_routes 
+  {number --> [symbol]}
+  0 -> []
+  M -> [(gensym "route_") | (initialise_routes (- M 1))])
+
+(define make-agents
+   {number --> personality --> [agent]}
+   0 _ -> []
+   N Personality -> (let Name (gensym "agent_") 
+                       [(make-agent Name (init_character Name Personality) run_agent) 
+                                       | (make-agents (- N 1) Personality)]))
+
+(define init_character
+   {symbol --> personality --> personality}
+     Name Personality -> (map (/. X (sub Name agent X)) Personality))
+
+(define run_model
+   {number --> model --> history}
+    0 (@p Agents History) -> (pphistory 1 (reverse History))
+    N (@p Agents History) -> (do (set *history* [[] | (value *history*)]) 
+                                 (map agent_action Agents)
+                                 (run_model (- N 1) (@p Agents (value *history*)))))
+ 
+(define pphistory
+  {number --> history --> history}
+   _ [] -> []
+   N [Moment | Moments] 
+   -> (do (output "~A. " N) (scroll Moment) (pphistory (+ N 1) Moments)))
+
+(define scroll
+  {moment --> [A]}
+   [] -> []
+   [Event | Events] -> (do (output "~A~%" Event) (scroll Events))) 
+
+(define agent_action     
+  {agent --> goals}     
+   Agent -> ((agent-pragmatics Agent)(agent_goals Agent)))
+
+(define agent_goals
+   {agent --> goals}
+     Agent -> (to-goals  [(@p (agent-personality Agent) begin)] []))
+
+(theory logrules
+
+name expall_l
+let E (expand X R P) 
+E >> Q;
+_________________
+[all X R P] >> Q;
+
+name expall_r
+let E (expand X R P) 
+E; 
+_________________
+[all X R P];
+
+name planactions
+P; [todo [Agent Action]]; begin;
+_____________________________________
+[P => [todo [Agent Action]]] >> begin;
+
+name drop_desire
+begin;
+_____________________________________
+[P => [todo [Agent Action]]] >> begin;
+
+name backchain
+[P => Q] >> P;
+_______________
+[P => Q] >> Q;
+
+name split_r
+P; Q;
+_____
+[P & Q];
+
+name split_l
+P, Q >> R;
+_____________
+[P & Q] >> R;
+
+name act
+if (execute-action Action)  
+___________________                 
+[todo [Agent Action]]; 
+
+name evalatom
+if (evaluate_atom? P)
+_____________________
+P;)
+
+(define run_agent
+  {goals --> goals}
+   Goals -> (plan_and_do (derive_ground_instances Goals)))
+
+(define derive_ground_instances 
+  {goals --> goals}
+  Goals -> (fix split_l (fix expall_l Goals)))
+
+(define plan_and_do
+   {goals --> goals}
+   Goals -> (let Plan (planactions Goals)
+                   (if (no_plan? Plan Goals)
+                       Goals
+                       (let Actions (prove_preconditions Plan)
+                             (if (preconditions_proved? Actions)
+                                 (plan_and_do (act Actions))
+                                 (plan_and_do (drop_desire Goals)))))))
+
+(define no_plan?
+    {goals --> goals --> boolean}
+    Goals Goals -> true
+    _ _ -> false)
+
+(define prove_preconditions
+   {goals --> goals}
+   Goals 
+  -> (fix (/. Tactic (backchain (split_r (evalatom (expall_r Tactic))))) Goals))
+
+(define preconditions_proved?    
+  {goals --> boolean}
+   Goals -> (does? (fst-conc Goals)))
+
+(define does?
+  {wff --> boolean}
+   [todo [Agent Action]] -> true
+   _ -> false)  
+
+(define expand
+   {symbol --> symbol --> wff --> wff}
+   Var Range Wff -> (exp* Var (jumble (den Range)) Wff))
+
+(define jumble
+  {[A] --> [A]}
+   [] -> []
+   L -> (let N (+ (random (length L)) 1)
+          (let X (nth N L) 
+            [X | (jumble (remove_nth N L))])))
+
+(define remove_nth
+  {number --> [A] --> [A]}
+   1 [_ | Y] -> Y
+   N [X | Y] -> [X | (remove_nth (- N 1) Y)])  
+
+(define exp*
+  {symbol --> [symbol] --> wff --> wff}
+   Var [Val] Wff -> (sub Val Var Wff)
+   Var [Val | Vals] Wff
+   -> [(sub Val Var Wff) & (exp* Var Vals Wff)])
+
+(define sub
+  {symbol --> symbol --> wff --> wff}
+   Val Var [all Q R P] -> [all Q R (sub Val Var P)]
+   Val Var [some Q R P] -> [some Q R (sub Val Var P)]
+   Val Var [P & Q] -> [(sub Val Var P) & (sub Val Var Q)]
+   Val Var [P v Q] -> [(sub Val Var P) v (sub Val Var Q)] 
+   Val Var [P => Q] -> [(sub Val Var P) => (sub Val Var Q)]
+   Val Var [~ P] -> [~ (sub Val Var P)]
+   Val Var [F X] -> [F (sub* Val Var X)])
+
+(define sub*
+  {symbol --> symbol --> [term] --> [term]}
+   Val Var [] -> []
+   Val Var [Term | Terms] 
+   -> [Val | (sub* Val Var Terms)] where (== Var Term)
+   Val Var [[Func | Terms] | MoreTerms] 
+   -> [[Func | (sub* Val Var Terms)] | (sub* Val Var MoreTerms)]
+   Val Var [Term | Terms] -> [Term | (sub* Val Var Terms)])
+
+(define den
+   {symbol --> [symbol]}
+   r -> (value *routes*))
+
+(define execute-action
+   {action --> boolean}
+     Action -> (do (set *history* (ea* Action (value *history*))) true))
+
+(define ea*
+   {action --> history --> history}
+     Action [M | Ms] -> [[(action_to_event Action) | M] | Ms]
+     Action [] -> [[(action_to_event Action)]])
+
+(define action_to_event 
+  {action --> event}
+   [F | T] -> [F T]) 
+
+(define evaluate_atom?    
+   {wff --> boolean}
+   [=> [[average_speed Agent X] [average_speed Agent Y]]] 
+   -> (>= (av_speed Agent X (value *history*)) 
+                (av_speed Agent Y (value *history*)))
+   [~ [travels [Agent Route]]] 
+    -> (not-travelled [travels [Agent Route]] (value *history*))
+    _ -> false)
+
+(define not-travelled
+  {wff --> history --> boolean}
+   P [[Q | Qs] | _] -> false where (== P Q)
+   P [[_ | Qs] | History] -> (not-travelled P [Qs | History])
+   _ _ -> true)
+
+(define av_speed
+   {term --> term --> history --> number}
+   _ _ [_] -> 50
+   Agent Route History
+   -> (average (map (/. Day (speed Agent Route Day)) (past History))))
+
+(define past
+  {history --> history}
+   [Present | Past] -> Past)
+
+(define speed
+   {term --> term --> moment --> number}
+   A R M -> (- 50 (slowdown A R M)))
+
+(define slowdown   
+  {term --> term --> moment --> number} 
+   _ _ [] -> 0
+  A R [[travels [A R]] | M] -> (slowdown A R M)
+  A R [[travels [_ R]] | M] -> (+ 10 (slowdown A R M))
+  A R [_ | M] -> (slowdown A R M))
+
+(define average
+  {[number] --> number}
+  Ns -> (/ (total Ns) (length Ns)))
+
+(define total
+  {[number] --> number}
+  [] -> 0
+  [X | Y] -> (+ X (total Y)))
+
+

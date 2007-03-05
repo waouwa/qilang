@@ -1,0 +1,19 @@
+(time-proof pc_decision_procedure [[p v q]] [q v p])
+(time-proof pc_decision_procedure []  [p v [~ p]])
+(time-proof pc_decision_procedure []  [[p => q] => [[~ q] => [~ p]]])
+(time-proof pc_decision_procedure []  [[p => q] v [q => p]])
+(time-proof pc_decision_procedure [[p <=> q]  [q <=> r]  [r <=> s]  [s <=> t]] [p <=> t])
+(time-proof pc_decision_procedure []  [[[p <=> q] <=> r] <=> [p <=> [q <=> r]]])
+(time-proof pc_decision_procedure [[q => r]  [r => [p & q]]  [p => [q v r]]] [p <=> q])
+(time-proof pc_decision_procedure []  [[[p v q] => [p v r]] => [p v [q => r]]])
+(time-proof pc_decision_procedure [[q => r] [r => [p & q]] [p => [q v r]]] [[p <=> q] <=> [r v [~ r]]])
+(time-proof pc_decision_procedure []  [[[~ p] => q] <=> [[~ q] => p]])
+(time-proof pc_decision_procedure 
+ [[s <=> [~ [[[p <=> [~ q]] & [[~ p] <=> q]] & [[p <=> q] & [[~ p] <=> [~ q]]]]]]]
+ [s & s])
+
+
+
+
+
+

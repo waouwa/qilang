@@ -1,0 +1,121 @@
+(test
+
+(cd "Qi Programs") 
+(input+ : number) 
+(tc +)
+(load "Chap10/proplog version 3.qi") 
+(backchain q [[q <= p] [q <= r] [r <=]]) 
+(backchain q [[q <= p] [q <= r]]) 
+(load "Chap10/N queens.txt") 
+(load "Chap10/ai.txt") 
+(load "Chap11/calculator.qi") 
+(do-calculation [[num 12] + [[num 7] * [num 45]]]) 
+(load "Chap11/streams.qi") 
+(stream-tail (@p 0 (+ 1))) 
+
+(structure ship
+   name string
+   nationality symbol
+   tonnage number
+   length number) 
+
+
+
+(make-ship "Sea Venus" greek 1055.9 568.8) 
+(ship-tonnage (make-ship "Sea Venus" greek 1055.9 568.8)) 
+
+(= (make-ship "Sea Venus" greek 1055.9 568.8) 
+   (make-ship "Sea Venus" greek 1055.9 568.8)) 
+
+
+
+(abstype stack
+
+(:types	empty-stack : (A --> (stack B))
+            push : (A --> (stack A) --> (stack A))
+            top : ((stack A) --> A)
+	pop : ((stack A) --> (stack A))                     		)
+
+(:defs	(define empty-stack
+         		_ -> "e!")
+
+        	(define push
+          		X S -> [X | S])
+
+        	(define top
+           		X -> (error "empty stack!") where (=  X (empty-stack ok))
+          		 [X | S] -> X)
+        
+        	(define pop
+          		 X -> (error "empty stack!") where (= X (empty-stack ok))
+           		[X | S] -> S)	)	) 
+
+ 
+
+(empty-stack ok) 
+(push 0 (empty-stack ok)) 
+(top [0  | "e!"]) 
+(top (push 0 (empty-stack ok))) 
+
+(datatype foo
+
+   commit!  
+   X : number;
+   __________
+   X : foo;
+
+   X : symbol;
+   __________
+   X : foo;) 
+
+
+
+(input+ : foo) 
+(input+ : foo) 
+\(preclude [foo]) \
+(input+ : foo) 
+(include [foo]) 
+
+(load "Chap14/pc.qi") 
+(prooftool -)       
+(load "Chap14/pc-prbs.txt") 
+(prooftool +) 
+
+(thm-intro comm-&)     
+(load "Chap15/fol.qi") 
+(strong-warning +) 
+(load "Chap15/fol.qi") 
+(strong-warning -) 
+(prooftool -) 
+(display-mode +) 
+(prooftool +) 
+(dump-proof "see.txt")
+(load "Chap15/autofol version 1.qi") 
+(load "Chap15/fol prbs.qi") 
+(load "Chap15/autofol version 2.qi") 
+(load "Chap15/fol prbs II.qi") 
+(prf v>>)
+(prooftool -)
+(dump-proof "see.txt")
+(profile v>>)
+(preclude-all-but [ ])
+(load "Chap16/micromycin.qi") 
+(micro-MYCIN go) 
+(load "Chap17/transport model.qi") 
+(model 7 7 7) 
+(load "G/interpreter.qi") 
+(l_interpreter start) )
+
+"[[[y-combinator [/. ADD [/. X [/. Y [if [= X 0] Y [[ADD [-- X]] [++ Y]]]]]]]  2] 3]
+
+
+[[[y-combinator [/. ADD [/. X [/. Y [if [= X 0] Y [[ADD [-- X]] [++ Y]]]]]]] 33] 4]
+
+[[[/. [@p X Y] X] 
+[y-combinator  [/. T 
+[@p [/. A [cases [[/. 1 false] A]
+                 [[/. X [[[/. [@p X Y] Y] T] [-- X]]] A]]]
+    [/. A [cases [[/. 1 true] A]
+                 [[/. X [[[/. [@p X Y] X] T] [-- X]]] A]]]]]]] 6]
+
+"
