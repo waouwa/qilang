@@ -1,0 +1,18 @@
+#summary Welcome to the Qi Wiki
+
+= Introduction =
+
+The Qi language is a pattern matched, lambda calculus consistent version of Common Lisp with optional strong typing. It extends Common Lisp while providing access from Qi back to the underlying Lisp system. It works on a wide variety of Common Lisp implementations and operating systems and is designed for maximum portability. 
+
+Qi was designed by Lambda Associates with Dr. Mark Tarver as the main implementer. Over the past few years it has grown a small community of adherents who are diligently working on expanding Qi and enhancing the power of Lisp.
+
+
+= Details =
+
+== Features ==
+* Lambda Calculus Consistency
+* Pattern Matching
+* (optional) Strong Typing
+* Native Sequent Calculus Evaluation
+* Backtracking
+* Access to All Common Lisp Functions
