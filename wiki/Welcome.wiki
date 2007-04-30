@@ -11,11 +11,12 @@ Qi was designed by Lambda Associates with Dr. Mark Tarver as the main implemente
 
 == Features ==
 
-  * [WikiSyntax Lambda Calculus Consistency]
+  * [LambdaConsistent Lambda Calculus Consistency]
   * Pattern Matching
   * (optional) Strong Typing
   * Native Sequent Calculus Evaluation
   * Backtracking
   * Access to All Common Lisp Functions
+
 
 
