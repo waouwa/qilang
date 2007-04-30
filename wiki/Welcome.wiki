@@ -1,4 +1,5 @@
 #summary Welcome to the Qi Wiki
+#labels Featured
 
 = Introduction =
 
@@ -17,5 +18,4 @@ Qi was designed by Lambda Associates with Dr. Mark Tarver as the main implemente
   * [SequentCalculus Native Sequent Calculus Evaluation]
   * [Backtracking Backtracking]
   * Access to All [CommonLisp Common Lisp] Functions
-
 
