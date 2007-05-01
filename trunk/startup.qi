@@ -1,0 +1,10 @@
+(TERPRI)
+
+(DEFUN LOAD_N_LAUNCH (X)
+  (COND ((EQ X NIL) "Done Loading")
+        (T (qi::load (CAR X))
+           (LOAD_N_LAUNCH (CDR X)))))
+
+(qi::initialise_environment)
+(LOAD_N_LAUNCH EXT:*ARGS*)
+(qi::qi)
