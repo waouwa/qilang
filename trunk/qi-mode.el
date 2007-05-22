@@ -45,21 +45,17 @@
    '("\\('\\w*'\\)" . font-lock-variable-name-face))
   "Minimal highlighting expressions for Qi mode.")
 
+
+
 (defconst qi-font-lock-keywords-2
   (append qi-font-lock-keywords-1
-          (list
-           '("\\<\\(true\\|false\\|character\\|string\\|symbol\\|number\\|list\\|boolean\\)\\>" . font-lock-constant-face)))
-  "Additional Keywords to highlight in Qi mode.")
-
-(defconst qi-font-lock-keywords-3
-  (append qi-font-lock-keywords-2
           (list
            '("\\<\\(if\\|tc\\)\\>" . font-lock-function-name-face)
            '("\\<\\([A-Z]\\w*\\)\\>" . font-lock-variable-name-face)
            '("\\<where\\|:=\\|@p\\>" . font-lock-type-face)
 ;           '("\\<test\\>" . font-lock-comment-face)
 ;           '("\\<test1\\>" . font-lock-keyword-face)
-;           '("\\<test2\\>" . font-lock-builtin-face)
+           '("\\<boolean[?]\\|character[?]\\|complex[?]\\|congruent[?]\\|cons[?]\\|element[?]\\|empty[?]\\|float[?]\\|integer[?]\\|number[?]\\|provable[?]\\|rational[?]\\|solved[?]\\|string[?]\\|symbol[?]\\|tuple[?]\\|variable[?]\\|\\(and\\|append\\|apply\\|atp-credits\\|atp-prompt\\|cd\\|collect\\|concat\\|cons\\|delete-file\\|destroy\\|debug\\|difference\\|display-mode\\|do\\|dump\\|dump-proof\\|eval\\|explode\\|error\\|fix\\|from-goals\\|fst\\|fst-ass\\|fst-conc\\|fst-goal\\|gensym\\|get-array\\|get-prop\\|get-rule\\|head\\|if-with-checking\\|if-without-checking\\|include\\|include-all-but\\|inferences\\|input\\|length\\|lineread\\|map\\|macroexpand\\|make-string\\|maxinferences\\|newfuntype\\|notes-in\\|nth\\|occurrences\\|output\\|preclude\\|preclude-all-but\\|prf\\|profile\\|profile-results\\|prooftool\\|put-array\\|put-prop\\|quit\\|random\\|read-char\\|read-file\\|read-file-as-charlist\\|read-chars-as-stringlist\\|refine\\|reserve\\|reverse\\|round\\|save\\|snd\\|spy\\|sqrt\\|step\\|strong-warning\\|tail\\|theory-size\\|thm-intro\\|to-goals\\|time\\|time-proof\\|track\\|undebug\\|union\\|unprf\\|unprofile\\|unreserve\\|unspecialise\\|untrack\\|value\\|version\\|warn\\|write-to-file\\)\\>" . font-lock-builtin-face)
 ;           '("\\<test3\\>" . font-lock-variable-name-face)
 ;           '("\\<test4\\>" . font-lock-type-face)
 ;           '("\\<test5\\>" . font-lock-constant-face)
@@ -67,6 +63,11 @@
            ))
   "more highlighting in Qi mode.")
 
+(defconst qi-font-lock-keywords-3
+  (append qi-font-lock-keywords-2
+          (list
+           '("\\<\\(true\\|false\\|character\\|string\\|symbol\\|number\\|list\\|boolean\\)\\>" . font-lock-constant-face)))
+  "Additional Keywords to highlight in Qi mode.")
 (defvar qi-font-lock-keywords qi-font-lock-keywords-3
   "Default highlighting expressions for Qi mode.")
 
