@@ -1,5 +1,14 @@
+\*
+(newfuntype ATAN (number --> number))
+(newfuntype CEILING (number --> number))
+(newfuntype CODE-CHAR { number --> character })
+(newfuntype COS (number --> number))
+(newfuntype EXP(number --> number))
+(newfuntype FLOOR (number --> number))
+(newfuntype LOG  (number --> number))
+(newfuntype ALPHA-CHAR-P ( character --> A))
 
-\
+
 The Qi Prelude
 
 abs
@@ -7,14 +16,15 @@ type:	abs :: Num a => a -> a
 description:	returns the absolute value of a number.
 definition:	
 
-\
+*\
 
 (define abs
-   X ->    (if (>= X 0) X 
-                     (- 0 X) 
-            ) 
+  { number --> number }
+  X     ->    (if (>= X 0) 
+		  X 
+		  (- 0 X)) 
 )
-\
+\*
 
 Lisp version: 
 
@@ -30,11 +40,12 @@ all
 type:	all :: (a -> Bool) -> [a] -> Bool
 description:	applied to a predicate and a list, returns True if all elements of the list satisfy the predicate, and False otherwise. Similar to the function any.
 definition:	
-\
-
+*\
 (define all
-   P Xs    -> (and-list (map P Xs)))
-\
+  { ( A --> boolean ) --> [A] --> boolean }
+  P Xs    -> (and-list (map P Xs))
+)
+\*
 usage:	
 
 (0-) (all (/. X (< X 11)) (range 1 10))
@@ -46,13 +57,14 @@ and-list  (renamed and for lists)
 type:	and :: [Bool] -> Bool
 description:	takes the logical conjunction of a list of boolean values (see also `or').
 definition:	
-\
+*\
 
 (define and-list
+  { [boolean] --> boolean }
    Xs           -> (foldr and true Xs)
 )
 
-\
+\*
  usage:	
 
 (0-) (and-list [true true false true])
@@ -68,13 +80,14 @@ type:	any :: (a -> Bool) -> [a] -> Bool
 description:	applied to a predicate and a list, returns True if any of the elements of the list satisfy the predicate, and False otherwise. Similar to the function all.
 definition:	
 dfdf
-\ 
+*\ 
 
 (define any
+   { ( A --> boolean ) --> [ A ] --> boolean }
    P Xs    -> (or-list (map P Xs))
 )
 
-\
+\*
 
 usage:	
 
@@ -89,13 +102,14 @@ atan
 type:	atan :: Floating a => a -> a
 description:	the trigonometric function inverse tan.
 definition:	
-\
+*\
 
 (define atan
+  { number --> number }
    X        -> (ATAN X)
 )
 
-\
+\*
 usage:	
 
 (0-) (atan (pi))
@@ -111,13 +125,14 @@ break p xs
   = span p' xs
     where
     p' x = not (p x)
-\
+*\
 
 (define break
-  P Xs       -> (span (not (/. X (P X))) Xs)
+  { ( A --> boolean) --> [ A ] --> (@p [ A ] [ A]) }
+  P Xs       -> (span (/. X (not (P X))) Xs)
 )
 
-\
+\*
 usage:	
 
 (0-) break isSpace "hello there fred"
@@ -129,13 +144,14 @@ ceiling
 type:	ceiling :: (RealFrac a, Integral b) => a -> b
 description:	returns the smallest integer not less than its argument.
 definition:
-\
+*\
 
 (define ceiling
+  { number --> number }
   X -> (CEILING X)
 )
 
-\
+\*
 usage:	
 
 (0-) (ceiling 3.8)
@@ -150,10 +166,11 @@ chr
 type:	chr :: Int -> Char
 description:	applied to an integer in the range 0 -- 255, returns the character whose ascii code is that integer. It is the converse of the function ord. An error will result if chr is applied to an integer outside the correct range.
 definition
-\
+*\
 (define chr
+  { number --> character }
    C       -> (CODE-CHAR C))
-\
+\*
 usage:	
 
 (0-) (chr 65)
@@ -166,14 +183,15 @@ compare
 type:	compare :: Ord a => a -> a -> Ordering
 description:	applied to to values of the same type which have an ordering defined on them, returns a value of type Ordering which will be: EQ if the two values are equal; GT if the first value is strictly greater than the second; and LT if the first value is less than or equal to the second value.
 definition:	
-\
+*\
 
 (define compare
-   X Y         -> EQ where (= X Y)
-   X Y         -> LT where (< X Y) 
-   _ _         -> GT
+  { A --> A --> character }
+   X Y         -> eq where (= X Y)
+   X Y         -> lt where (< X Y) 
+   _ _         -> gt
 )
-\
+\*
 usage:	
 
 (0-) (compare "aadvark" "zebra")
@@ -183,14 +201,15 @@ compose (NEW FUNCTION)
 type: [(a -> a)] -> (a -> a)
 description: Takes a non-empty list of 1-place functions and forms their composition
 definition:
-\
+*\
 
 (define compose
-   [F]         -> F
-   [F | Xs]    -> (/. X (F ((compose Xs) X)))
+  { [ ( A --> A) ] --> ( A --> A) }
+  [F]         -> F
+  [F | Xs]    -> (/. X (F ((compose Xs) X)))
 )
 
-\
+\*
 usage:
 (0)> ((compose [(/. X (+ 1 X)) sqrt]) 5)
 3.236068
@@ -199,12 +218,14 @@ concat-list (renamed concat)
 type:	concat :: [[a]] -> [a]
 description:	applied to a list of lists, joins them together using the ++ operator.
 definition:	
-\
+*\
 
 (define concat-list
-   Xs              -> (foldr append [] Xs))
+  { [[ A ]] --> [ A ] }
+  Xs              -> (foldr append [] Xs)
+)
 
-\
+\*
 usage:	
 
 (0-) (concat-list [[1 2 3] [4] [] [5 6 7 8]])
@@ -214,13 +235,14 @@ concatMap
 type:	concatMap :: (a -> [b]) -> [a] -> [b]
 description:	given a function which maps a value to a list, and a list of elements of the same type as the value, applies the function to the list and then concatenates the result (thus flattening the resulting list).
 definition:	
-\
+*\
 
 (define concatMap
-   F             -> (compose [concat-list (map F) ])
+  { ( A --> [B] ) --> [A] --> [B] }
+  F             -> (compose [concat-list (map F) ])
 )
 
-\
+\*
 usage:	
 
 (0-) concatMap show [1,2,3,4]
@@ -228,15 +250,16 @@ usage:
 
 const
 type:	const :: const :: a -> b -> a
-description:	creates a constant valued function which always has the value of its first argument, regardless of the value of its second argument.
+description:	creates a constant valued function which always has the value of its first argument, regardless of the value of its second argument. It is the K in SKI.
 definition:	
-\
+*\
 
 (define const
-   K _       -> K
+  { A --> B --> A }
+  K _       -> K
 )
 
-\
+\*
 usage:	
 
 (0-) (const 12 "lucky")
@@ -246,12 +269,13 @@ cos
 type:	cos :: Floating a => a -> a
 description:	the trigonometric cosine function, arguments are interpreted to be in radians.
 definition:	
-\
+*\
 
 (define cos
+  { number --> number }
    X       -> (COS X)
 )
-\
+\*
 usage:	
 
 (0-) (cos (pi)
@@ -263,9 +287,10 @@ digitToInt
 type:	digitToInt :: Char -> Int
 description:	converts a digit character into the corresponding integer value of the digit.
 definition:	
-\
+*\
 
 (define digitToInt
+  { character --> number }
    C -> 0 where (= C #\0)
    C -> 1 where (= C #\1)
    C -> 2 where (= C #\2)
@@ -284,7 +309,7 @@ definition:
    C -> 15 where (or (= C #\f) (= C #\F))
 )
 
-\
+\*
 
 usage:	
 
@@ -295,13 +320,14 @@ div
 type:	div :: Integral a => a -> a -> a
 description:	computes the integer division of its integral arguments.
 definition:	
-\
+*\
 
 (define div
+  { number --> number --> number }
    X Y     -> (floor (* 1.0 (/ X Y)))
 )
 
-\
+\*
 usage:	
 
 (0-) 16 `div` 9
@@ -314,16 +340,17 @@ drop
 type:	drop :: Int -> [a] -> [a]
 description:	applied to a number and a list, returns the list with the specified number of elements removed from the front of the list. If the list has less than the required number of elements then it returns [].
 definition:	
-\
+*\
 
 (define drop
+  { number --> [A] --> [A] }
    0 Xs       -> Xs
    _ []       -> []
    N [_ | Xs] -> (drop (- N 1) Xs) where (> N 0)
    _ _        -> (error "drop: negative argument")
 )
 
-\
+\*
 usage:	
 
 (0-) (drop 3 (range 1..10))
@@ -334,15 +361,16 @@ dropWhile
 type:	dropWhile :: (a -> Bool) -> [a] -> [a]
 description:	applied to a predicate and a list, removes elements from the front of the list while the predicate is satisfied.
 definition:	
-\
+*\
 
 (define dropWhile
+  { ( A --> boolean) --> [A] --> [A] }
   P []            -> []
   P [ X | Xs]     -> (dropWhile P Xs) where (P X)
   P L             -> L
 )
 
-\
+\*
 usage:	
 
 (0-) (dropWhile (/. X (< X 5)) (range 1 10))
@@ -352,12 +380,13 @@ elem
 type:	elem :: Eq a => a -> [a] -> Bool
 description:	applied to a value and a list returns True if the value is in the list and False otherwise. The elements of the list must be of the same type as the value.
 definition:	
-\
+*\
 
 (define elem
+  { A --> [A] --> boolean }
    X L -> (element? X L)
 )
-\
+\*
 usage:	
 
 (0-) (elem 5 (range 1 10))
@@ -377,13 +406,14 @@ even
 type:	even :: Integral a => a -> Bool
 description:	applied to an integral argument, returns True if the argument is even, and False otherwise.
 definition:	
-\
+*\
 
 (define even
+  { number --> boolean }
    X        -> (= (rem X 2) 0)
 )
 
-\
+\*
 usage:	
 
 (0-) (even 2)
@@ -395,13 +425,14 @@ exp
 type:	exp :: Floating a => a -> a
 description:	the exponential function (exp n is equivalent to en).
 definition:	
-\
+*\
 
 (define exp
+  { number --> number }
    X       -> (EXP X)
 )
 
-\
+\*
 usage:	
 
 (0-) (exp 1)
@@ -411,15 +442,16 @@ filter
 type:	filter :: (a -> Bool) -> [a] -> [a]
 description:	applied to a predicate and a list, returns a list containing all the elements from the argument list that satisfy the predicate.
 definition:	
-\
+*\
 
 (define filter
+  { ( A --> boolean) --> [A] --> [A] }
    P []          -> []
    P [ X | Xs ]  -> [ X | (filter P Xs)] where (P X)
    P [ X | Xs ]  -> (filter P Xs)
 )
 
-\
+\*
 usage:	
 
 (0-) (filter number? [f a t 1 2 3 c a t 4 5 6])
@@ -428,13 +460,14 @@ usage:
 flatten
 type: flatten [a] -> [a]
 description: takes in a list and takes only the non-cons elements and puts them in a list
-\
+*\
 (define flatten
+  { [A] --> [A] }
    []          -> []
    X           -> [X] where (not (cons? X))
    [X | Xs]    -> (append (flatten X) (flatten Xs))
 )
-\
+\*
 usage:
 
 (0-) (flatten [ [ 1 [2]] [2]])
@@ -445,10 +478,12 @@ type:	flip :: (a -> b -> c) -> b -> a -> c
 description:	applied to a binary function, returns the same function with the order of the arguments reversed.
 definition:	
 
-\
+*\
 (define flip
-  F X Y     -> (F Y X))
-\
+  { ( A --> B --> C ) --> B --> A --> C }
+  F X Y     -> (F Y X)
+)
+\*
 
 usage:	
 
@@ -459,12 +494,13 @@ floor
 type:	floor :: (RealFrac a, Integral b) => a -> b
 description:	returns the largest integer not greater than its argument.
 definition:
-\
+*\
 
 (define floor
+  {number --> number}
   X -> (FLOOR X))
 
-\
+\*
 usage:	
 
 (0-) (floor 3.8)
@@ -481,14 +517,15 @@ description:	folds up a list, using a given binary operator and a given start va
 foldl op r [a, b, c] ? ((r `op` a) `op` b) `op` c
 
 definition:	
-\
+*\
 
 (define foldl
+  { ( A --> B --> A ) --> A --> [B] --> A }
    _ Z []           -> Z
    F Z [ X | Xs ]   -> (foldl F (F Z X) Xs)
 )
 
-\
+\*
 usage:	
 
 (0-) (foldl + 0 (range 1 10))
@@ -500,13 +537,14 @@ foldl1
 type:	foldl1 :: (a -> a -> a) -> [a] -> a
 description:	folds left over non--empty lists.
 definition:	
-\
+*\
 
 (define foldl1
+   { ( A --> A --> A ) --> [A] --> A }
    F [ X | Xs]   -> (foldl F X Xs)
 )
 
-\
+\*
 usage:	
 
 (0-) (foldl1 max [1 10 5 2 -1])
@@ -519,14 +557,15 @@ description:	folds up a list, using a given binary operator and a given start va
 foldr op r [a, b, c] ? a `op` (b `op` (c `op` r))
 
 definition:	
-\
+*\
 
 (define foldr
+  { ( A --> B --> B ) --> B --> [A] --> B }
    _ Z []         -> Z
    F Z [ X | Xs ] -> (F X (foldr F Z Xs))
 )
 
-\
+\*
 usage:	
 
 (0-) (foldr append [] [[1 2 3] [4 5 6] [7 8] [9 10 11]])
@@ -536,14 +575,15 @@ foldr1
 type:	foldr1 :: (a -> a -> a) -> [a] -> a
 description:	folds right over non--empty lists.
 definition:	
-\
+*\
 
 (define foldr1
+   { ( A --> A --> A ) --> [A] --> A }
    F [X]       -> X
    F [X | Xs]  -> (F X (foldr1 F Xs))
 )
 
-\
+\*
 usage:	
 
 (0-) (foldr1 * (range 1 10))
@@ -578,22 +618,23 @@ gcd
 type:	gcd :: Integral a => a -> a -> a
 description:	returns the greatest common divisor between its two integral arguments.
 definition:	
-\
+*\
 
 (define gcd
+  { number --> number --> number }
    0 0     -> (error "gcd: GCD 0 0 is undefined")
-   X Y     -> (gcd-prime (abs X) (abs Y))
+   X Y     -> (gcd-help (abs X) (abs Y))
 )
 
 
-
-(define gcd-prime
+(define gcd-help
+  { number --> number --> number }
    X 0            -> X
-   X Y            -> (gcd-prime Y (rem X Y))
+   X Y            -> (gcd-help Y (rem X Y))
 )
 
 
-\
+\*
 usage:	
 
 (0-) (gcd 2 10)
@@ -616,11 +657,14 @@ id
 type:	id :: a -> a
 description:	the identity function, returns the value of its argument.
 definition:	
-\
+*\
 
-(define id X -> X)
+(define id 
+  { A --> A }
+  X -> X
+)
 
-\
+\*
 usage:	
 
 (0-) (id 12)
@@ -634,14 +678,15 @@ init
 type:	init :: [a] -> [a]
 description:	returns all but the last element of its argument list. The argument list must have at least one element. If init is applied to an empty list an error occurs.
 definition:	
-\
+*\
 
 (define init
+  { [A] --> [A] }
    [X]      -> []
    [X|Xs]   -> [X | (init Xs)]
 )
 
-\
+\*
 usage:	
 
 (0-) (init (range 1 10))
@@ -651,13 +696,14 @@ isAlpha
 type:	isAlpha :: Char -> Bool
 description:	applied to a character argument, returns True if the character is alphabetic, and False otherwise.
 definition:	
-\
+*\
 
 (define isAlpha
-   C           -> (lisp-truth (ALPHA-CHAR-P C))
+  {character --> boolean}
+  C     -> (if (= (ALPHA-CHAR-P C) []) false true)
 )
 
-\
+\*
 usage:	
 
 (0-) (isAlpha 'a')
@@ -669,13 +715,14 @@ isDigit
 type:	isDigit :: Char -> Bool
 description:	applied to a character argument, returns True if the character is a numeral, and False otherwise.
 definition:	
-\
+*\
 
 (define isDigit
-   C           -> (lisp-truth (DIGIT-CHAR-P C))
+  {character --> boolean}
+   C           -> (if (= (DIGIT-CHAR-P C) []) false true)
 )
 
-\
+\*
 usage:	
 
 (0-) (isDigit '1')
@@ -687,13 +734,14 @@ isLower
 type:	isLower :: Char -> Bool
 description:	applied to a character argument, returns True if the character is a lower case alphabetic, and False otherwise.
 definition:	
-\
+*\
 
 (define isLower
-   C           -> (lisp-truth (LOWER-CASE-P C))
+  {character --> boolean}
+   C           -> (if (= (LOWER-CASE-P C) []) false true)
 )
 
-\
+\*
 usage:	
 
 (0-) (isLower 'a')
@@ -707,8 +755,9 @@ isSpace
 type:	isSpace :: Char -> Bool
 description:	returns True if its character argument is a whitespace character and False otherwise.
 definition:	
-\
+*\
 (define isSpace
+  {character --> boolean}
    C           ->(or-list [
 			  (= C #\Space)
 			  (= C #\Tab)
@@ -718,7 +767,7 @@ definition:
 			  (= C #\Return)]
                 )
 )
-\
+\*
 
 usage:	
 
@@ -740,27 +789,29 @@ True
 False
 (0-) isUpper '1'
 False
-\
+*\
 
 (define isUpper
-   C           -> (lisp-truth (UPPER-CASE-P C))
+  {character --> boolean}
+   C           -> (if (= (UPPER-CASE-P C) []) false true)
 )
 
 
-\
+\*
 
 last
 type:	last :: [a] -> a
 description:	applied to a non--empty list, returns the last element of the list.
 definition:	
-\
+*\
 
 (define last
+  { [A] --> A }
    [X]      -> X
    [_|Xs]   -> (last Xs)
 )
 
-\
+\*
 usage:	
 
 (0-) (last (range 1 10))
@@ -770,15 +821,16 @@ lcm
 type:	lcm :: Integral a => a -> a -> a
 description:	returns the least common multiple of its two integral arguments.
 definition:	
-\
+*\
 
 (define lcm 
+  { number --> number --> number }
    _ 0     -> 0
    0 _     -> 0
    X Y     -> (abs (* (quot X (gcd X Y)) Y))
 )
 
-\
+\*
 usage:	
 
 (0-) (lcm 2 10)
@@ -813,37 +865,44 @@ usage:
 
 (0-) lines "hello world/nit's me,/neri/n"
 ["hello world", "it's me,", "eric"]
-
+*\
 (define lines
-   []        -> []
-   [X|XS]    ->(let from_break
-                    (break (= #Newline) [X|Xs])
-		    [(fst from_break) | (lines (snd from_break)) ] 
-               )
+  { string --> [string] }
+  S -> (reverse (lines-prime (s2l S) []))
 )
-
+(define lines-prime
+  { [character] --> [string] }
+   [] Ls           -> Ls
+   [X|Xs] Ls       ->(let Xsp
+			 (break (= #\Newline) [X|Xs])
+		       (if (= (snd Xsp) []) 
+			   [(fst Xsp) | Ls]
+			   (lines-prime (tail (snd Xsp)) [(fst Xsp) | Ls])))
+)
+\*
 
 lisp-truth
 type:  lisp-truth :: a -> Bool
 description: Takes a truth value from lisp and converts it into Qi true or false
 definition:
-\
+*\
 
 (define lisp-truth
-   X               -> true where (not (= X []))
-   _               -> false
+  { A --> boolean }
+   X               -> (if (= X []) false true)
 )
 
-\
+\*
 log
 type:	log :: Floating a => a -> a
 description:	returns the natural logarithm of its argument.
 definition:	
-\
+*\
 (define log
+  { number --> number }
    X       -> (LOG X)
 )
-\
+\*
 usage:	
 
 (0-) (log 1)
@@ -865,14 +924,15 @@ max
 type:	max :: Ord a => a -> a -> a
 description:	applied to two values of the same type which have an ordering defined upon them, returns the maximum of the two elements according to the operator >=.
 definition:	
-\
+*\
 
 (define max
-   X Y     -> X where (>= X Y)
-   X Y     -> Y
+  { number --> number --> number }
+  X Y     -> X where (>= X Y)
+  X Y     -> Y
 )
 
-\
+\*
 usage:	
 
 (0-) (max 1 2)
@@ -882,11 +942,14 @@ maximum
 type:	maximum :: Ord a => [a] -> a
 description:	applied to a non--empty list whose elements have an ordering defined upon them, returns the maximum element of the list.
 definition:	
-\
+*\
 
-(define maximum XS -> (foldl1 max XS))
+(define maximum 
+  { [ number ] --> number }
+  XS -> (foldl1 max XS)
+)
 
-\
+\*
 
 usage:	
 
@@ -897,13 +960,14 @@ min
 type:	min :: Ord a => a -> a -> a
 description:	applied to two values of the same type which have an ordering defined upon them, returns the minimum of the two elements according to the operator <=.
 definition:	
-\
+*\
 
 (define min
+  { number --> number --> number }
    X Y     ->(MIN X Y)
 )
 
-\
+\*
 usage:	
 
 (0-) (min 1 2)
@@ -913,11 +977,14 @@ minimum
 type:	minimum :: Ord a => [a] -> a
 description:	applied to a non--empty list whose elements have an ordering defined upon them, returns the minimum element of the list.
 definition:	
-\
+*\
 
-(define minimum XS -> (foldl1 min XS))
+(define minimum 
+  { [ number ] --> number }
+  XS -> (foldl1 min XS)
+)
 
-\
+\*
 usage:	
 
 (0-) (minimum [ -10 0 5 22 13])
@@ -927,11 +994,13 @@ mod
 type:	mod :: Integral a => a -> a -> a
 description:	returns the modulus of its two arguments.
 definition:	
-\
+*\
 
-(define mod X Y -> (MOD X Y))
+(define mod 
+  { number --> number --> number }
+  X Y -> (MOD X Y))
 
-\
+\*
 usage:	
 
 (0-) (mod 16 9)
@@ -941,11 +1010,13 @@ newline
 type:  newline :: a => String
 description: returns a newline string
 definition:
-\
+*\
 
-(define newline -> (make-string "~%"))
+(define newline 
+  { string }
+  -> (make-string "~%"))
 
-\
+\*
 
 
 not
@@ -962,13 +1033,13 @@ false
 notElem
 description:	returns True if its first argument is not an element of the list as its second argument.
 definition:
-\
+*\
 
 (define notElem
   X Y          -> (not (element? X Y))
 )
 
-\
+\*
 usage:	
 
 (0-) (notElem 3 [1 2 3] )
@@ -980,14 +1051,14 @@ null
 type:	null :: [a] -> Bool
 description:	returns True if its argument is the empty list ([]) and False otherwise.
 definition:	
-\
+*\
 
 (define null
    []       -> true
    [_|_]    -> false
 )
 
-\
+\*
 usage:	
 
 (0-) (null [])
@@ -1000,13 +1071,13 @@ odd
 type:	odd :: Integral a => a -> Bool
 description:	applied to an integral argument, returns True if the argument is odd, and False otherwise.
 definition:	
-\
+*\
 
 (define odd
    X       -> (not (even X))
 )
 
-\
+\*
 
 usage:	
 
@@ -1020,13 +1091,14 @@ or-list (renamed or)
 type:	or :: [Bool] -> Bool
 description:	applied to a list of boolean values, returns their logical disjunction (see also `and').
 definition:	
-\
+*\
 
 (define or-list
+  { [boolean] --> boolean }
    Xs -> (foldr or false Xs)
 )
 
-\
+\*
 
 usage:	
 
@@ -1042,10 +1114,11 @@ type:	ord :: Char -> Int
 description:	applied to a character, returns its ascii code as an integer.
 definition:	defined internally.
 usage:	
-\
+*\
 (define ord
+  {character --> number }
    C        -> (CHAR-CODE C))
-\
+\*
 (0-) (ord 'A')
 65
 (0-) (= (chr (ord 'A')) 'A')
@@ -1062,9 +1135,9 @@ usage:
 3.14159
 (0-) cos pi
 -1.0
-\
+*\
 (define pi -> 3.141592653589793L0)
-\
+\*
 pred
 type:	pred :: Enum a => a -> a
 description:	applied to a value of an enumerated type returns the predecessor (previous value in the enumeration) of its argument. If its argument is the first value in an enumeration an error will occur.
@@ -1089,13 +1162,14 @@ product
 type:	product :: Num a => [a] -> a
 description:	applied to a list of numbers, returns their product.
 definition:	
-\
+*\
 
 (define product
+  { [number] --> number }
    Xs          -> (foldl * 1 Xs)
 )
 
-\
+\*
 usage:	
 
 (0-) (product (range 1 10))
@@ -1111,29 +1185,32 @@ usage:
 2
 (0-) quot 16 9
 1
-\
+*\
 
 (define quot
+  { number --> number --> number }
    X Y      -> (FLOOR (* 1.0 (/ X Y)))
 )
 
-\
+\*
 range
 description: Copy of the .. opperator in Haskell
 definition:
-\
+*\
 
 (define range
+  { number --> number --> [ number ] }
   X Y -> (range-prime X Y 1 <= ) where (< X Y)
   X Y -> (range-prime X Y -1 >= )
 )
 
 (define range-prime
+  { number --> number --> number --> ( number --> number --> boolean) --> [ number ] }
   X Y _ P -> [] where (not (P X Y))
   X Y N P -> [X | (range-prime (+ N X) Y N P ) ]
 )
 
-\
+\*
 rem
 type:	rem :: Integral a => a -> a -> a
 description:	returns the remainder after dividing its first integral argument by its second integral argument.
@@ -1148,13 +1225,14 @@ usage:
 notes:	The following equality holds:
 
 (x `quot` y)*y + (x `rem` y) == x
-\
+*\
 
 (define rem
+   { number --> number --> number }
    X Y      -> (REM X Y)
 )
 
-\
+\*
 repeat
 type:	repeat :: a -> [a]
 description:	given a value, returns an infinite list of elements the same as the value.
@@ -1173,17 +1251,19 @@ replicate
 type:	replicate :: Int -> a -> [a]
 description:	given an integer (positive or zero) and a value, returns a list containing the specified number of instances of that value.
 definition:	
-\
+*\
 
 (define replicate
+  { number --> A --> [A]}
    N X           -> (replicate* N X [])
 )
 (define replicate*
+  { number --> A --> [A] --> [A]}
    0 X Xs         -> Xs
    N X Xs         -> (replicate* (- N 1) X [ X | Xs ])
 )
 
-\
+\*
 
 usage:	
 
@@ -1233,12 +1313,13 @@ usage:
 1.0
 (0-) ((sin pi)^2) + ((cos pi)^2)
 1.0
-\
+*\
 
 (define sin
+  { number --> number }
    X       -> (SIN X))
 
-\
+\*
 snd
 type:	snd :: (a, b) -> b
 description:	returns the second element of a two element tuple.
@@ -1252,15 +1333,16 @@ span
 type:	span :: (a -> Bool) -> [a] -> ([a],[a])
 description:	given a predicate and a list, splits the list into two lists (returned as a tuple) such that elements in the first list are taken from the head of the list while the predicate is satisfied, and elements in the second list are the remaining elements from the list once the predicate is not satisfied.
 definition:	
-\
+*\
 (define span
+  { (A --> boolean ) --> [A] --> (@p [A] [A]) }
    P []          -> (@p [] [])
    P [X|Xs]      -> (let Yz (span P Xs)
                          (@p [X|(fst Yz)] (snd Yz))
                      )  where (P X)
    P Xs   -> (@p [] Xs)
 )
-\
+\*
 usage:	
 
 (o-) (span isDigit (s2l "123abc456"))
@@ -1270,8 +1352,9 @@ splitAt
 type:	splitAt :: Int -> [a] -> ([a],[a])
 description:	given an integer (positive or zero) and a list, splits the list into two lists (returned as a tuple) at the position corresponding to the given integer. If the integer is greater than the length of the list, it returns a tuple containing the entire list as its first element and the empty list as its second element.
 definition:	
-\
+*\
 (define splitAt
+  { number --> [A] --> (@p [A] [A]) }
   0 Xs         -> (@p [] Xs)
   _ []         -> (@p [] [])
   N [X|Xs]     -> (let Aftersplit (splitAt (- N 1) Xs)
@@ -1279,7 +1362,7 @@ definition:
                   ) where (> N 0)
   _ _          -> (error "splitAt: negative arg or non list")
 )
-\
+\*
 usage:	
 
 (0-) (splitAt 3 (range 1 10))
@@ -1291,22 +1374,25 @@ usage:
 s2l and l2s
 description: Turns a string into a list or vise versa
 definition:
-\
+*\
 (define s2l
- S         -> (s2l* S 0 [])
+  { string --> [character]}
+  S         -> (s2l* S 0 [])
 )
 
 (define s2l*
+  { string --> number --> [character] --> [character]}
  S N L      -> (reverse L) where (= (LENGTH S) N)
  S N L      -> (s2l* S (+ N 1) (cons (CHAR S N) L)  )
 )
 
 (define l2s
+  { [character] --> string }
   []       -> ""
   S        -> (read-chars-as-stringlist (reverse S) (/. X X))
 )
 
-\
+\*
 sqrt
 type:	sqrt :: Floating a => a -> a
 description:	returns the square root of a number.
@@ -1320,10 +1406,11 @@ subtract
 type:	subtract :: Num a => a -> a -> a
 description:	subtracts its first argument from its second argument.
 definition:	
-\
+*\
 (define subtract
+  { number --> number --> number }
    X Y          -> (- Y X))
-\
+\*
 usage:	
 
 (0-) (subtract 7 10)
@@ -1333,13 +1420,14 @@ sum
 type:	sum :: Num a => [a] -> a
 description:	computes the sum of a finite list of numbers.
 definition:	
-\
+*\
 
 (define sum
+  { [ number ] --> number }
    Xs      -> (foldl + 0 Xs)
 )
 
-\
+\*
 usage:	
 
 (0-) (sum (range 1 10))
@@ -1358,16 +1446,17 @@ take
 type:	take :: Int -> [a] -> [a]
 description:	applied to an integer (positive or zero) and a list, returns the specified number of elements from the front of the list. If the list has less than the required number of elements, take returns the entire list.
 definition:	
-\
+*\
 
 (define take
+  { number --> [A] --> [A] }
    0 _        -> []
    _ []       -> []
    N [X|Xs]   -> (cons X (take (- N 1) Xs)) where (> N 0)
    _ _        -> (error "take: negative argument or non list")
 )
 
-\
+\*
 usage:	
 
 (0-) (take 2 [1 2 3])
@@ -1379,15 +1468,16 @@ takeWhile
 type:	takeWhile :: (a -> Bool) -> [a] -> [a]
 description:	applied to a predicate and a list, returns a list containing elements from the front of the list while the predicate is satisfied.
 definition:	
-\
+*\
 
 (define takeWhile
+  { (A --> boolean) --> [A] --> [A] }
   P []           -> []
   P [X|Xs]       -> [X | (takeWhile P Xs)] where (P X)
   _ _            -> []
 )
 
-\
+\*
 usage:	
 
 (0-) (takeWhile (/. X (< X 5)) [1 2 3 10 4 2])
@@ -1397,13 +1487,14 @@ tan
 type:	tan :: Floating a => a -> a
 description:	the trigonometric function tan, arguments are interpreted to be in radians.
 definition:	
-\
+*\
 
 (define tan
+  { number --> number }
    X       -> (TAN X)
 )
 
-\
+\*
 usage:	
 
 (0-) (tan (/ (pi) 4))
@@ -1414,13 +1505,14 @@ toLower
 type:	toLower :: Char -> Char
 description:	converts an uppercase alphabetic character to a lowercase alphabetic character. If this function is applied to an argument which is not uppercase the result will be the same as the argument unchanged.
 definition:	
-\
+*\
 
 (define toLower
+  { character --> character }
    C           -> (CHAR-DOWNCASE C)
 )
 
-\
+\*
 usage:	
 
 (0-) toLower 'A'
@@ -1432,13 +1524,14 @@ toUpper
 type:	toUpper :: Char -> Char
 description:	converts a lowercase alphabetic character to an uppercase alphabetic character. If this function is applied to an argument which is not lowercase the result will be the same as the argument unchanged.
 definition:	
-\
+*\
 
 (define toUpper
+  { character --> character }
    C           -> (CHAR-UPCASE C)
 )
 
-\
+\*
 usage:	
 
 (0-) toUpper 'a'
@@ -1450,14 +1543,15 @@ truncate
 type:	truncate :: (RealFrac a, Integral b) => a -> b
 description:	drops the fractional part of a floating point number, returning only the integral part.
 definition:
-\
+*\
 
 (define truncate
+  { number --> number }
    X            -> (TRUNCATE X)
 )
   
 
-\
+\*
 usage:	
 
 (0-) truncate 3.2
@@ -1470,13 +1564,14 @@ unlines
 type:	unlines :: [String] -> String
 description:	converts a list of strings into a single string, placing a newline character between each of them. It is the converse of the function lines.
 definition:	
-\
+*\
 (define unlines
+  { [ string ] --> string }
    Xs          -> (foldl  (/. OldString (/. Current (make-string "~A~A~%" OldString Current)))
                           ""
                           Xs)
 )
-\
+\*
 
 usage:	
 
@@ -1490,14 +1585,15 @@ until
 type:	until :: (a -> Bool) -> (a -> a) -> a -> a
 description:	given a predicate, a unary function and a value, it recursively re--applies the function to the value until the predicate is satisfied. If the predicate is never satisfied until will not terminate.
 definition:	
-\
+*\
 
 (define until
+  { (A --> boolean) --> ( A --> A) --> A --> A }
    P F X     -> X where (P X)
    P F X     -> (until P F (F X))
 )
 
-\
+\*
 usage:	
 
 (0-) (until (/. X (> X 1000)) (* 2) 1)
@@ -1507,14 +1603,15 @@ unwords
 type:	unwords :: [String] -> String
 description:	concatenates a list of strings into a single string, placing a single space between each of them.
 definition:	
-\
+*\
 
 (define unwords
+  { [string] --> string }
    Xs          -> (foldl1  (/. OldString (/. Current (make-string "~A ~A" OldString Current)))
                           Xs)
 )
 
-\
+\*
 usage:	
 
 (0-) (unwords ["the" "quick" "brown" "fox"])
@@ -1537,13 +1634,14 @@ usage:
 (0-) (words "the quick brown/n/nfox"
 ["the", "quick", "brown", "fox"]
 
-\
+*\
 (define words
+  { string --> [string] }
    Xs         ->(read-chars-as-stringlist (s2l Xs)  
                                           (/. X (isSpace X))
                 )
 )
-\
+\*
 
 zip
 type:	zip :: [a] -> [b] -> [(a,b)]
@@ -1559,28 +1657,30 @@ usage:
 
 (0-) zip [1..6] "abcd"
 [(1, 'a'), (2, 'b'), (3, 'c'), (4, 'd')]
-\
+*\
 
 (define zip
+  { [A] --> [B] --> [(@p A B)] }
   Xs Ys    -> (zipWith @p Xs Ys)
 )
 
-\
+\*
 zipWith
 type:	zipWith :: (a -> b -> c) -> [a] -> [b] -> [c]
 description:	applied to a binary function and two lists, returns a list containing elements formed be applying the function to corresponding elements in the lists.
 definition:	
-\
+*\
 
 (define zipWith
+  { (A --> B --> C) --> [A] --> [B] --> [C] }
    Z [A|As] [B|Bs]   -> (cons (Z A B) (zipWith Z As Bs))
    _ _ _             -> []
 )
 
-\
+\*
 usage:	
 
 (0-) (zipWith + (range 1 5) (range 6 10))
 [7 9 11 13 15]
-\
+*\
 
