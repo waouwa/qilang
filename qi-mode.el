@@ -130,6 +130,7 @@
   (let ((qi-mode-syntax-table (make-syntax-table)))
     (modify-syntax-entry ?\\ "!" qi-mode-syntax-table)
     (modify-syntax-entry ?# "\\" qi-mode-syntax-table)
+    (modify-syntax-entry ?- "w" qi-mode-syntax-table)
     qi-mode-syntax-table)
   "Syntax table for qi-mode")
   
@@ -155,7 +156,7 @@
 
 ;;; qi-mode.el ends here
 
-
-
+;; doesn't match ? for some reason
+;;(regexp-opt '("boolean?" "concat" "character?" "complex?" "congruent?" "cons?" "element?" "empty?" "float?" "integer?" "number?" "provable?" "rational?" "solved?" "string?" "symbol?" "tuple?" "variable?" "and" "append" "apply" "atp-credits" "atp-prompt" "cd" "collect" "cons" "delete-file" "destroy" "debug" "difference" "display-mode" "do" "dump" "dump-proof" "eval" "explode" "error" "fix" "from-goals" "fst" "fst-ass" "fst-conc" "fst-goal" "gensym" "get-array" "get-prop" "get-rule" "head" "if-with-checking" "if-without-checking" "include" "include-all-but" "inferences" "input" "length" "lineread" "map" "macroexpand" "make-string" "maxinferences" "newfuntype" "notes-in" "nth" "occurrences" "output" "preclude" "preclude-all-but" "prf" "profile" "profile-results" "prooftool" "put-array" "put-prop" "quit" "random" "read-char" "read-file" "read-file-as-charlist" "read-chars-as-stringlist" "refine" "reserve" "reverse" "round" "save" "snd" "spy" "sqrt" "step" "strong-warning" "tail" "theory-size" "thm-intro" "to-goals" "time" "time-proof" "track" "undebug" "union" "unprf" "unprofile" "unreserve" "unspecialise" "untrack" "value" "version" "warn" "write-to-file") t)
 
 
