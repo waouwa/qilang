@@ -29,33 +29,53 @@
 ;; 
 ;; Contributers: Jt Gleason <jt@entropyfails.com>
 
+;; In order for inferior Qi to work, include something like
+;; (add-hook 'qi-mode-hook
+;;   '(lambda () (setq inferior-lisp-program "/usr/local/bin/Qi")))
+;; to your .emacs file.
+
 ;;; Code:
 (defvar qi-mode-hook nil)
-(defvar qi-mode-map
-  (let ((qi-mode-map (make-keymap)))
-    (define-key qi-mode-map "\C-j" 'newline-and-indent)
-    qi-mode-map)
-  "Keymap for Qi major mode")
+(defvar qi-mode-map nil)
+
+
+(unless qi-mode-map
+  (let ((map (make-sparse-keymap "Qi")))
+    (setq qi-mode-map (make-sparse-keymap))
+    (define-key qi-mode-map "\C-c\C-c" 'run-lisp)
+    (set-keymap-parent qi-mode-map lisp-mode-shared-map)
+    (define-key qi-mode-map [menu-bar] (make-sparse-keymap))
+    (define-key qi-mode-map [menu-bar qi]
+      (cons "Qi" map))
+    (define-key map [run-lisp] '("Run Inferior Qi" . run-lisp))
+    (define-key map [indent-region] '("Indent Region" . indent-region))
+    (define-key map [indent-line] '("Indent Line" . lisp-indent-line))
+    (put 'comment-region 'menu-enable 'mark-active)
+    (put 'uncomment-region 'menu-enable 'mark-active)
+    (put 'indent-region 'menu-enable 'mark-active)))
 
 (add-to-list 'auto-mode-alist '("\\.qi\\'" . qi-mode))
 
+
+
 (defconst qi-font-lock-keywords-1
   (list
-   '("\\<define\\|datatype\\|/.\\>" . font-lock-keyword-face)
+   '("\\<\\(define\\|datatype\\)\\>" . font-lock-keyword-face)
    '("\\('\\w*'\\)" . font-lock-variable-name-face))
   "Minimal highlighting expressions for Qi mode.")
-
-
 
 (defconst qi-font-lock-keywords-2
   (append qi-font-lock-keywords-1
           (list
            '("\\<\\(if\\|tc\\)\\>" . font-lock-function-name-face)
+           '("\\W/\\.\\W" . font-lock-function-name-face)
            '("\\<\\([A-Z]\\w*\\)\\>" . font-lock-variable-name-face)
-           '("\\<where\\|:=\\|@p\\>" . font-lock-type-face)
-;           '("\\<test\\>" . font-lock-comment-face)
+           '("\\<where\\>" . font-lock-type-face)
+           '("\\W@p\\W" . font-lock-type-face)
+           '("\\<\\(boolean[?]\\|character[?]\\|complex[?]\\|congruent[?]\\|cons[?]\\|element[?]\\|empty[?]\\|float[?]\\|integer[?]\\|number[?]\\|provable[?]\\|rational[?]\\|solved[?]\\|string[?]\\|symbol[?]\\|tuple[?]\\|variable[?]\\)\\W" . font-lock-builtin-face)
+           '("\\<\\(and\\|append\\|apply\\|atp-credits\\|atp-prompt\\|cd\\|collect\\|concat\\|cons\\|delete-file\\|destroy\\|debug\\|difference\\|display-mode\\|do\\|dump\\|dump-proof\\|eval\\|explode\\|error\\|fix\\|from-goals\\|fst\\|fst-ass\\|fst-conc\\|fst-goal\\|gensym\\|get-array\\|get-prop\\|get-rule\\|head\\|if-with-checking\\|if-without-checking\\|include\\|include-all-but\\|inferences\\|input\\|length\\|lineread\\|map\\|macroexpand\\|make-string\\|maxinferences\\|newfuntype\\|notes-in\\|nth\\|occurrences\\|output\\|preclude\\|preclude-all-but\\|prf\\|profile\\|profile-results\\|prooftool\\|put-array\\|put-prop\\|quit\\|random\\|read-char\\|read-file\\|read-file-as-charlist\\|read-chars-as-stringlist\\|refine\\|reserve\\|reverse\\|round\\|save\\|snd\\|spy\\|sqrt\\|step\\|strong-warning\\|tail\\|theory-size\\|thm-intro\\|to-goals\\|time\\|time-proof\\|track\\|undebug\\|union\\|unprf\\|unprofile\\|unreserve\\|unspecialise\\|untrack\\|value\\|version\\|warn\\|write-to-file\\)\\>" . font-lock-builtin-face)
+;           '("\\<test\\>"  . font-lock-comment-face)
 ;           '("\\<test1\\>" . font-lock-keyword-face)
-           '("\\<boolean[?]\\|character[?]\\|complex[?]\\|congruent[?]\\|cons[?]\\|element[?]\\|empty[?]\\|float[?]\\|integer[?]\\|number[?]\\|provable[?]\\|rational[?]\\|solved[?]\\|string[?]\\|symbol[?]\\|tuple[?]\\|variable[?]\\|\\(and\\|append\\|apply\\|atp-credits\\|atp-prompt\\|cd\\|collect\\|concat\\|cons\\|delete-file\\|destroy\\|debug\\|difference\\|display-mode\\|do\\|dump\\|dump-proof\\|eval\\|explode\\|error\\|fix\\|from-goals\\|fst\\|fst-ass\\|fst-conc\\|fst-goal\\|gensym\\|get-array\\|get-prop\\|get-rule\\|head\\|if-with-checking\\|if-without-checking\\|include\\|include-all-but\\|inferences\\|input\\|length\\|lineread\\|map\\|macroexpand\\|make-string\\|maxinferences\\|newfuntype\\|notes-in\\|nth\\|occurrences\\|output\\|preclude\\|preclude-all-but\\|prf\\|profile\\|profile-results\\|prooftool\\|put-array\\|put-prop\\|quit\\|random\\|read-char\\|read-file\\|read-file-as-charlist\\|read-chars-as-stringlist\\|refine\\|reserve\\|reverse\\|round\\|save\\|snd\\|spy\\|sqrt\\|step\\|strong-warning\\|tail\\|theory-size\\|thm-intro\\|to-goals\\|time\\|time-proof\\|track\\|undebug\\|union\\|unprf\\|unprofile\\|unreserve\\|unspecialise\\|untrack\\|value\\|version\\|warn\\|write-to-file\\)\\>" . font-lock-builtin-face)
 ;           '("\\<test3\\>" . font-lock-variable-name-face)
 ;           '("\\<test4\\>" . font-lock-type-face)
 ;           '("\\<test5\\>" . font-lock-constant-face)
@@ -119,9 +139,10 @@
 ;; like defun if the first form is placed on the next line, otherwise
 ;; it is indented like any other form (i.e. forms line up under first).
 
-(put '/. 'qi-indent-function 1)
+;(put (make-symbol "/.") 'qi-indent-function 1)
 (put 'datatype 'qi-indent-function 1)
 (put 'let 'qi-indent-function 'qi-let-indent)
+;(put (make-symbol "->") 'qi-indent-function 'qi-let-indent)
 
 
 ;; Qi uses the \ character as the comment delimiter
@@ -155,8 +176,5 @@
 (provide 'qi-mode)
 
 ;;; qi-mode.el ends here
-
-;; doesn't match ? for some reason
-;;(regexp-opt '("boolean?" "concat" "character?" "complex?" "congruent?" "cons?" "element?" "empty?" "float?" "integer?" "number?" "provable?" "rational?" "solved?" "string?" "symbol?" "tuple?" "variable?" "and" "append" "apply" "atp-credits" "atp-prompt" "cd" "collect" "cons" "delete-file" "destroy" "debug" "difference" "display-mode" "do" "dump" "dump-proof" "eval" "explode" "error" "fix" "from-goals" "fst" "fst-ass" "fst-conc" "fst-goal" "gensym" "get-array" "get-prop" "get-rule" "head" "if-with-checking" "if-without-checking" "include" "include-all-but" "inferences" "input" "length" "lineread" "map" "macroexpand" "make-string" "maxinferences" "newfuntype" "notes-in" "nth" "occurrences" "output" "preclude" "preclude-all-but" "prf" "profile" "profile-results" "prooftool" "put-array" "put-prop" "quit" "random" "read-char" "read-file" "read-file-as-charlist" "read-chars-as-stringlist" "refine" "reserve" "reverse" "round" "save" "snd" "spy" "sqrt" "step" "strong-warning" "tail" "theory-size" "thm-intro" "to-goals" "time" "time-proof" "track" "undebug" "union" "unprf" "unprofile" "unreserve" "unspecialise" "untrack" "value" "version" "warn" "write-to-file") t)
 
 
