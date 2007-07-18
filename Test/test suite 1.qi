@@ -81,10 +81,15 @@
 
 (ask [likes mark X]) 
 
-(query-prolog [[bagof X likes[mark X] Y] [return Y]]) 
+(defprolog 
+  "friends(X) :- bagof(Y,likes(X,Y), Friends), return(Friends).")
 
-(defprolog
+(ask [bagof X likes[mark X] Y]) 
+
+(call-prolog [friends mark])
  
+(defprolog 
+
 "prop(A,C) :- pr([[~, C] | A]).
  
 pr(A) :- member([~ P], A), member(P, A), !.
@@ -134,8 +139,8 @@ consit(X,[1 X]).")
 tall(mary).
 pretty(mary).") 
 
-(query-prolog [[likes john Who]]) 
-(query-prolog [[likes john Who] [return Who]]) 
+(call-prolog [likes john Who]) 
+\(query-prolog [[likes john Who] [return Who]]) \
 
 (defcc <sent>
 <np> <vp>;) 
@@ -279,7 +284,9 @@ c;)
 
 (compile <anbncn> [a a a b b b c c c]) 
 
-(compile <anbncn> [a a a b b b c c]) )
+(compile <anbncn> [a a a b b b c c]) 
+
+(cd ""))
 
 
 

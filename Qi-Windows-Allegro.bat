@@ -1,0 +1,1 @@
+alisp.exe -I "Qi_version 7.3.dxl"
