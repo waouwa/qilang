@@ -1,1 +1,1 @@
-lisp.exe -M lispinit.mem 
+"clisp-2.41\base\clisp.exe" -M "clisp-2.41\base\lispinit.mem"

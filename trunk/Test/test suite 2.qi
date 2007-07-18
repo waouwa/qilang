@@ -1,5 +1,6 @@
 (test
 
+(maxinferences 100000000)
 (cd "Qi Programs") 
 (input+ : number) 
 (tc +)
@@ -98,12 +99,13 @@
 (prooftool -)
 (dump-proof "see.txt")
 (profile v>>)
-(preclude-all-but [ ])
-(load "Chap16/micromycin.qi") 
+(load "Chap16/microMycin.qi") 
 (micro-MYCIN go) 
 (load "Chap17/transport model.qi") 
+\Fails under SBCL\
 (model 7 7 7) 
 (load "G/interpreter.qi") 
+(cd "")
 (l_interpreter start) )
 
 "[[[y-combinator [/. ADD [/. X [/. Y [if [= X 0] Y [[ADD [-- X]] [++ Y]]]]]]]  2] 3]

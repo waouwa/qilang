@@ -14,7 +14,7 @@ vlink="#00FFFF" alink="#00FFFF">
     <tr>
         <td><img src="lbest.jpg" width="193" height="183"></td>
         <td><p align="center"><font size="5" face="Verdana">Installation
-        Instructions</font></p>
+        Instructions Qi 9.0</font></p>
         <p align="right"><a href="http://www.lambdassociates.org"><font
         size="2" face="Verdana">www.lambdassociates.org</font></a></p>
         </td>
@@ -28,7 +28,7 @@ vlink="#00FFFF" alink="#00FFFF">
 <p><font size="2" face="Verdana">This directory contains all the
 necessary materials for installing and programming </font><font
 size="3"><em>Qi</em></font><font size="2" face="Verdana"> under
-CLisp and CMU Lisp.</font></p>
+CLisp, CMU Lisp, Allegro CL and SBCL.</font></p>
 
 <p><font size="3" face="Verdana"><strong><u>Linux Installation
 under CLisp</u></strong></font></p>
@@ -76,7 +76,7 @@ size="2" face="Verdana"> running under it.</font></p>
 under CMU Lisp</u></strong></font></p>
 
 <p><font size="3"><em>Qi</em></font><font size="2" face="Verdana">
-7.2 has been tested on CMU Common Lisp 19c. Go to </font><a
+has been tested on CMU Common Lisp 19c. Go to </font><a
 href="http://www.cons.org/cmucl/"><font size="2" face="Verdana">www.cons.org/cmucl</font></a><font
 size="2" face="Verdana"> to get CMU Lisp, and install it. Enter
 CMU Lisp and type </font></p>
@@ -91,10 +91,106 @@ size="2" face="Verdana">, set the file </font><font
 color="#00FF00" size="2" face="Verdana">Qi-Linux-CMU</font><font
 size="2" face="Verdana"> to executable and execute it.</font></p>
 
-<p><font size="2" face="Verdana">Copyright (c) 2006, Mark Tarver<br>
+<p><font size="3" face="Verdana"><strong><u>Windows Installation
+under SBCL</u></strong> </font></p>
+
+<p><font size="3"><em>Qi</em></font><font size="2" face="Verdana">
+has only been tested under SBCL under Windows. </font></p>
+
+<p><font size="2" face="Verdana"><strong>Building a Static Image</strong></font></p>
+
+<p><font size="2" face="Verdana">Go to </font><a
+href="http://sbcl.sourceforge.net/"><font size="2" face="Verdana">http://sbcl.sourceforge.net</font></a><font
+size="2" face="Verdana"> to get Steel Bank Common Lisp, and
+install it. Enter SBCL<strong> </strong>within this directory and
+then type</font></p>
+
+<p align="center"><font color="#00FF00" size="2" face="Verdana"><strong>(LOAD
+&quot;install.lisp&quot;)</strong></font></p>
+
+<p><font size="2" face="Verdana">to the Allegro prompt. The file </font><font
+color="#00FF00" size="2" face="Verdana">Qi-Windows-SBCL</font><font
+size="2" face="Verdana"> is a batch file; clicking on it will
+create a command window with </font><font size="3"><em>Qi</em></font><font
+size="2" face="Verdana"> running as a core under SBCL. </font></p>
+
+<p><font size="3" face="Verdana"><strong><u>Linux Installation
+under SBCL</u></strong> </font></p>
+
+<p><font size="3"><em>Qi</em></font><font size="2" face="Verdana">
+has only been tested under SBCL under Windows. </font></p>
+
+<p><font size="2" face="Verdana"><strong>Building a Static Image</strong></font></p>
+
+<p><font size="2" face="Verdana">Go to </font><a
+href="http://sbcl.sourceforge.net/"><font size="2" face="Verdana">http://sbcl.sourceforge.net</font></a><font
+size="2" face="Verdana"> to get Steel Bank Common Lisp, and
+install it. Enter SBCL<strong> </strong>within this directory and
+then type</font></p>
+
+<p align="center"><font color="#00FF00" size="2" face="Verdana"><strong>(LOAD
+&quot;install.lisp&quot;)</strong></font></p>
+
+<p><font size="2" face="Verdana">to the Allegro prompt. The file </font><font
+color="#00FF00" size="2" face="Verdana">Qi-Linux-SBCL</font><font
+size="2" face="Verdana"> is a batch file; clicking on it will
+create a command window with </font><font size="3"><em>Qi</em></font><font
+size="2" face="Verdana"> running as a core under SBCL. </font></p>
+
+<p><font size="3" face="Verdana"><strong><u>Windows Installation
+under Allegro</u></strong> </font></p>
+
+<p><font size="2" face="Verdana">This can be done in two ways. </font><font
+size="3"><em>Qi</em></font><font size="2" face="Verdana"> has
+only been tested under Allegro 7.0 under Windows. </font></p>
+
+<p><font size="2" face="Verdana"><strong>Building a Static Image</strong></font></p>
+
+<p><font size="2" face="Verdana">Run Allegro <strong>using alisp </strong>with
+the default case insensitive setting within this directory and
+then type</font></p>
+
+<p align="center"><font color="#00FF00" size="2" face="Verdana"><strong>(LOAD
+&quot;install.lisp&quot;)</strong></font></p>
+
+<p><font size="2" face="Verdana">to the Allegro prompt. The file </font><font
+color="#00FF00" size="2" face="Verdana">Qi-Windows-Allegro</font><font
+size="2" face="Verdana"> is a batch file; clicking on it will
+create a command window with </font><font size="3"><em>Qi</em></font><font
+size="2" face="Verdana"> running under Allegro. Note you have to
+have licence permission to run the file Qi 8.0.dxl from Franz and
+your license permission should be in the current folder. Note as
+of 21st May 2007, we are having problems with building an Allegro
+image. According to Franz this is due to a problem with Allegro which
+they aim to fix with 8.1.  If you have problems with this then use the next method.</font></p>
+
+<p><font size="2" face="Verdana"><strong>Running Qi by Loading a
+FASL File</strong></font></p>
+
+<p><font size="2" face="Verdana">Note you still have to have your
+license permission in the current folder. </font></p>
+
+<p><font size="2" face="Verdana">(A) Run Allegro <strong>using
+alisp </strong>within this folder and then type</font></p>
+
+<p align="center"><font color="#00FF00" size="2" face="Verdana"><strong>(LOAD
+&quot;install.lisp&quot;)</strong></font></p>
+
+<p align="left"><font size="2" face="Verdana">(B) Once you've
+done that then you need not repeat this process. Whenever you
+need </font><font size="3"><em>Qi</em></font><font size="2"
+face="Verdana"> under alisp enter </font></p>
+
+<p align="center"><font color="#00FF00" size="2" face="Verdana"><strong>(LOAD
+&quot;run_fasl_allegro.txt&quot;) </strong></font></p>
+
+<p align="left"><font size="2" face="Verdana">which will load the
+FASL file into your image and send you to the </font><font
+size="3"><em>Qi</em></font><font size="2" face="Verdana"> top
+level.</font></p>
+
+<p><font size="2" face="Verdana">Copyright (c) 2007, Mark Tarver<br>
 </font><a href="mailto:dr.mtarver@ukonline.co.uk"><font size="2"
-face="Verdana">dr.mtarver@ukonline.co.uk</font></a><font size="2"
-face="Verdana"><br>
-</font></p>
+face="Verdana">dr.mtarver@ukonline.co.uk</font></a></p>
 </body>
 </html>

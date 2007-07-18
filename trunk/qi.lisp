@@ -1,46 +1,68 @@
-"**********************************************************
+"************************************************************************
  *       (C) Copyright Mark Tarver, 2000-2007, Lambda Associates		*
- *								*
- *		       	Qi 7.2 Lisp Source Code 			*
- *								*
+							 											*
+ *		       	Qi 9.0 Lisp Source Code 								*
+ *																		*
  * Use and copying of this software and preparation of derivative works	*
  * based upon this software is permitted, as long as this copyright 	*
- * notice is left intact.						*
- * 								*
- * This software is made available under the GPL Licence AS IS, and the  	*
- * author makes no warranty about the software, its performance or its   	*
- * conformity to any specification.					*			
- * 								*
- * You may modify this program, but the copyright notice must remain.      *
- *                                                                                             *  
- * Further details about this program can be found in 			*
- * www.lambdassociates.org.					*
- **********************************************************	" 
+ * notice is left intact.												*
+ * 																		*
+ * This software is made available under the GPL Licence AS IS, and the *
+ * author makes no warranty about the software, its performance or its  *
+ * conformity to any specification.										*			
+ * 																	    *
+ * You may modify this program, but the copyright notice must remain.   *
+ *                                                                		*  
+ * Further details about this program can be found in 					*
+ * www.lambdassociates.org.												*
+ ************************************************************************	" 
 
-"For lots of comments and wisdom, don't look here, look in the file Qi 7.2 in Qi.txt" 
+"For lots of comments and wisdom, don't look here, look in the file Qi 9.0 in Qi.txt" 
 "This is 95% machine generated code from Qi, Qi-Prolog and Qi-YACC"
 
 (IN-PACKAGE "qi")
 
+#+SBCL
+(CL:USE-PACKAGE "COMMON-LISP")
+
 (SETF (READTABLE-CASE *READTABLE*) :PRESERVE)
 
+(PROCLAIM '(SPECIAL *logical-inferences* *closures* *userdefs* *currfunc*
+                    *dump-file* *strong-warning* *tempsigs* *read-user-input-characters*
+                    *version* *exempted* *synonyms* *allsynonyms* *maxinferences*
+                    *licence* *start-time* *thm* *atp-prompt* *complexity-bound*
+                    *occurs* *usertypes* *all-usertypes* *collect* *problem*
+                    *start* *tactic* *atp-prompt* *proof* *call* *arith* *assoctypes*
+                    *arity* *sfht* *tc* *display-rb* *inferences* *history*
+                    *qi_home_directory* *special_forms* *turbo*))
 (SET-SYNTAX-FROM-CHAR #\; #\v)
 
 (DEFUN waffle-off ()
    #+CLISP (PROGN (PROCLAIM '(OPTIMIZE (SPEED 3) (SAFETY 0)))
-                                       (SETQ SYSTEM::*COMPILE-WARNINGS* NIL) 
-                                       (SETQ *COMPILE-VERBOSE* NIL))
+                  (SETQ SYSTEM::*COMPILE-WARNINGS* NIL) 
+                  (SETQ *COMPILE-VERBOSE* NIL))
    #+CMU (PROGN (SETQ *COMPILE-PRINT* NIL) 
-                                     (PROCLAIM '(OPTIMIZE (SPEED 3) (SAFETY 0) (EXTENSIONS::INHIBIT-WARNINGS 3)))
-                                     (SETQ EXTENSIONS::*GC-VERBOSE* NIL))
-   #-(OR CLISP CMU)  (ERROR "Unknown platform to Qi: ~A" (LISP-IMPLEMENTATION-TYPE)))
+                (PROCLAIM '(OPTIMIZE (SPEED 3) (SAFETY 0) (EXTENSIONS::INHIBIT-WARNINGS 3)))
+                (SETQ EXTENSIONS::*GC-VERBOSE* NIL))
+   #+SBCL (PROGN (SETQ *COMPILE-PRINT* NIL) 
+                                     (PROCLAIM 
+                                      '(SB-EXT:MUFFLE-CONDITIONS 
+                                            SB-EXT:COMPILER-NOTE CL:STYLE-WARNING)))
+   #+ALLEGRO (PROGN (EXCL:SET-CASE-MODE :CASE-SENSITIVE-UPPER)
+                    (PROCLAIM '(OPTIMIZE (SPEED 3) (SAFETY 0))))
+   #-(OR CLISP CMU SBCL ALLEGRO) 
+     (ERROR "Unknown platform to Qi: ~A" (LISP-IMPLEMENTATION-TYPE)))
 
 (waffle-off)
 
 (DEFUN fix-closures ()
       #+CMU   (SETQ *closures* '(FUNCTION COMPILED-FUNCTION EVAL::INTERPRETED-FUNCTION))
       #+CLISP  (SETQ *closures* '(FUNCTION COMPILED-FUNCTION))
-     #-(OR CLISP CMU) (ERROR "Qi does not recognise this platform ~A" (LISP-IMPLEMENTATION-TYPE)))
+      #+ALLEGRO (SETQ *closures* '(EXCL::CLOSURE FUNCTION COMPILED-FUNCTION))
+      #+SBCL   (SETQ *closures* 
+                   '(FUNCTION COMPILED-FUNCTION SB-EVAL:INTERPRETED-FUNCTION))
+     #-(OR CLISP CMU SBCL ALLEGRO) 
+       (ERROR "Qi does not recognise this platform ~A" (LISP-IMPLEMENTATION-TYPE)))
 
 (fix-closures)
 
@@ -51,17 +73,17 @@
    dump-proof element? empty? error eval explode fail-if fix float? from-goals
    fst fst-ass fst-conc system fst-goal gensym get-array get-lambda
    get-prop get-rule head if if-with-checking if-without-checking input input+ integer? inferences 
-   length let lineread list load make-array make-string map maxinferences  mlet  
+   length let lineread list load make-array make-string map maxinferences    
    newfuntype new-assoc-type not notes-in nth number?
    occurrences occurs-check or output prf print profile profile-results prooftool provable?
    put-array put-prop quit random read-char read-file-as-charlist read-file
    read-chars-as-stringlist rational? real? refine remove reverse rotate round save set snd
    solved? specialise spy sqrt step string? strong-warning structure subst swap symbol?
    synonyms tail tc theory theory-size thin thm-intro time time-proof to-goals
-   track tuple? undebug unprf union unprofile untrack value version
+   track tuple? turbo undebug unprf union unprofile untrack value version
    unspecialise variable? warn write-to-file y-or-n? qi_> qi_< qi_>= qi_<= qi_= + *
    / /. - qi_= == @c @p preclude include preclude-all-but include-all-but
-   when* eval* eval!* when!* ask query-prolog =* is* is!* return* bind* fail* not*
+   when* eval* eval!* when!* ask call-prolog =* is* is!* return* bind* fail* not*
    ==* =!* typecheck* call* bagof* answer*))
 
 (DEFMACRO define (&REST X) 
@@ -129,6 +151,8 @@
   ((CONSP V5379) (specialise_type (CDR V5379) V5380))
   (T (implementation_error 'specialise_type))))
 
+(DEFUN gensym (X) (GENTEMP X))
+
 (DEFUN type_rule? (V5381 V5382 V5383 V5384)
  (COND
   ((AND (CONSP V5382) (CONSP (CDR V5382)) (CONSP (CDR (CDR V5382)))
@@ -153,13 +177,20 @@
     (IF
      (EQ 'true
       (qi_=
-       (typechecks? (build_patt_env (extract_vars V5406)) (stvars V5406)
+       (typechecks? (build_patt_env (extract_variables V5406)) (stvars V5406)
         (CAR V5403))
        'false))
      (raise_type_failure V5401 V5404 V5405)
      (integrity? V5401 (CDR V5402) (CAR (CDR (CDR V5403)))
       (THE NUMBER (+ V5404 1)) V5405))))
   (T (raise_type_failure V5401 'arity V5405))))
+
+(DEFUN extract_variables (V861)
+ (COND ((wrapper (variable? V861)) (CONS V861 NIL))
+  ((CONSP V861)
+   (THE LIST
+    (union (extract_variables (CAR V861)) (extract_variables (CDR V861)))))
+  (T NIL)))
 
 (DEFUN build_patt_env (V5407)
  (COND ((NULL V5407) NIL)
@@ -300,19 +331,6 @@
     (CONS (CONS (cons->@c (CAR V21647)) (CONS '$$ (CONS (CAR V21648) NIL)))
      V21649)))
   (T (implementation_error 'build_action_env))))
-
-(DEFUN curry_type (V5450)
- (COND
-  ((AND (CONSP V5450) (CONSP (CDR V5450)) (EQ '--> (CAR (CDR V5450)))
-    (CONSP (CDR (CDR V5450))) (CONSP (CDR (CDR (CDR V5450))))
-    (EQ '--> (CAR (CDR (CDR (CDR V5450))))))
-   (curry_type (CONS (CAR V5450) (CONS '--> (CONS (CDR (CDR V5450)) NIL)))))
-  ((AND (CONSP V5450) (EQ 'cons (CAR V5450)) (CONSP (CDR V5450))
-    (CONSP (CDR (CDR V5450))) (NULL (CDR (CDR (CDR V5450)))))
-   (LET* ((V5451 (CDR V5450)))
-    (CONS 'list
-     (CONS (curry_type (CAR V5451)) (curry_type (CAR (CDR V5451)))))))
-  ((CONSP V5450) (MAPCAR 'curry_type V5450)) (T V5450)))
 
 (DEFUN curry_type (V8)
  (COND
@@ -705,26 +723,27 @@
 
 (DEFUN extract_free_vars (V5517) (extract_free_vars* NIL V5517 NIL))
 
-(DEFUN extract_free_vars* (V5526 V5527 V5528)
- (COND
-  ((wrapper (and (variable? V5527) (not (element? V5527 V5526))))
-   (THE LIST (union (CONS V5527 NIL) V5528)))
-  ((AND (CONSP V5527) (EQ 'let (CAR V5527)) (CONSP (CDR V5527))
-    (CONSP (CDR (CDR V5527))) (CONSP (CDR (CDR (CDR V5527))))
-    (NULL (CDR (CDR (CDR (CDR V5527))))))
-   (LET* ((V5529 (CDR V5527)) (V5530 (CDR V5529)))
+(DEFUN extract_free_vars* (V42 V43 V44)
+  (COND
+   ((AND (wrapper (variable? V43)) (NOT (wrapper (element? V43 V42))))
+    (THE LIST (union (CONS V43 NIL) V44)))
+    ((AND (CONSP V43) (EQ 'let (CAR V43)) (CONSP (CDR V43))
+         (CONSP (CDR (CDR V43))) (CONSP (CDR (CDR (CDR V43))))
+         (NULL (CDR (CDR (CDR (CDR V43))))))
+    (LET* ((V47 (CDR V43)) (V48 (CDR V47)))
+      (THE LIST
+           (union (extract_free_vars* V42 (CAR V48) V44)
+                  (extract_free_vars* (CONS (CAR V47) V42) (CAR (CDR V48))
+                                      V44)))))
+   ((AND (CONSP V43) (EQ '/. (CAR V43)) (CONSP (CDR V43))
+         (CONSP (CDR (CDR V43))) (NULL (CDR (CDR (CDR V43)))))
+    (LET* ((V49 (CDR V43)))
+      (extract_free_vars* (CONS (CAR V49) V42) (CAR (CDR V49)) V44)))
+   ((CONSP V43)
     (THE LIST
-     (union (extract_free_vars* V5526 (CAR V5530) V5528)
-      (extract_free_vars* (CONS (CAR V5529) V5526) (CAR (CDR V5530)) V5528)))))
-  ((AND (CONSP V5527) (EQ '/. (CAR V5527)) (CONSP (CDR V5527))
-    (CONSP (CDR (CDR V5527))) (NULL (CDR (CDR (CDR V5527)))))
-   (LET* ((V5531 (CDR V5527)))
-    (extract_free_vars* (CONS (CAR V5531) V5526) (CAR (CDR V5531)) V5528)))
-  ((CONSP V5527)
-   (THE LIST
-    (union (extract_free_vars* V5526 (CAR V5527) V5528)
-     (extract_free_vars* V5526 (CDR V5527) V5528))))
-  (T V5528)))
+         (union (extract_free_vars* V42 (CAR V43) V44)
+                (extract_free_vars* V42 (CDR V43) V44))))
+   (T V44)))
 
 (DEFUN union (x y) (UNION x y :TEST 'ABSEQUAL))
 
@@ -948,21 +967,20 @@
         (beta_reduce* Test* (CONS X* (CDR V5567)))))))))
   (T (CONS V5566 (CONS V5567 NIL)))))
 
-(DEFUN substf (V5594 V5595 V5596)
- (COND ((wrapper (qi_= V5595 V5596)) V5594)
-  ((AND (CONSP V5596) (EQ '/. (CAR V5596)) (CONSP (CDR V5596))
-    (CONSP (CDR (CDR V5596))) (NULL (CDR (CDR (CDR V5596))))
-    (wrapper (occurs? V5595 (CAR (CDR V5596)))))
-   V5596)
-  ((AND (CONSP V5596) (EQ 'let (CAR V5596)) (CONSP (CDR V5596))
-    (CONSP (CDR (CDR V5596))) (CONSP (CDR (CDR (CDR V5596))))
-    (NULL (CDR (CDR (CDR (CDR V5596)))))
-    (wrapper (qi_= V5595 (CAR (CDR V5596)))))
-   (LET* ((V5597 (CDR V5596)) (V5598 (CAR V5597)) (V5599 (CDR V5597)))
-    (CONS 'let
-     (CONS V5598 (CONS (substf V5594 V5598 (CAR V5599)) (CDR V5599))))))
-  ((CONSP V5596) (THE LIST (map #'(LAMBDA (Z) (substf V5594 V5595 Z)) V5596)))
-  (T V5596)))
+(DEFUN substf (V63 V64 V65)
+  (COND ((ABSEQUAL V64 V65) V63)
+        ((AND (CONSP V65) (EQ '/. (CAR V65)) (CONSP (CDR V65))
+              (CONSP (CDR (CDR V65))) (NULL (CDR (CDR (CDR V65))))
+              (wrapper (occurs? V64 (CAR (CDR V65)))))
+         V65)
+        ((AND (CONSP V65) (EQ 'let (CAR V65)) (CONSP (CDR V65))
+              (CONSP (CDR (CDR V65))) (CONSP (CDR (CDR (CDR V65))))
+              (NULL (CDR (CDR (CDR (CDR V65)))))
+              (ABSEQUAL V64 (CAR (CDR V65))))
+         (LET* ((V68 (CDR V65)) (V69 (CAR V68)) (V70 (CDR V68)))
+           (CONS 'let (CONS V69 (CONS (substf V63 V69 (CAR V70)) (CDR V70))))))
+        ((CONSP V65) (THE LIST (MAPCAR #'(LAMBDA (Z) (substf V63 V64 Z)) V65)))
+        (T V65)))
 
 (DEFUN atom? (V5602)
  (THE SYMBOL
@@ -973,28 +991,92 @@
      (THE SYMBOL
       (or (THE SYMBOL (boolean? V5602)) (THE SYMBOL (character? V5602)))))))))
 
-(DEFUN compile_to_lisp (V5608)
+(DEFUN compile_to_lisp (V1)
  (COND
-  ((AND (CONSP V5608) (EQ 'y-combinator (CAR V5608)) (CONSP (CDR V5608))
-    (CONSP (CAR (CDR V5608))) (EQ '/. (CAR (CAR (CDR V5608))))
-    (CONSP (CDR (CAR (CDR V5608)))) (CONSP (CDR (CDR (CAR (CDR V5608)))))
-    (NULL (CDR (CDR (CDR (CAR (CDR V5608)))))) (NULL (CDR (CDR V5608))))
+  ((AND (CONSP V1) (EQ 'y-combinator (CAR V1)) (CONSP (CDR V1))
+    (CONSP (CAR (CDR V1))) (EQ '/. (CAR (CAR (CDR V1))))
+    (CONSP (CDR (CAR (CDR V1)))) (CONSP (CDR (CDR (CAR (CDR V1)))))
+    (NULL (CDR (CDR (CDR (CAR (CDR V1)))))) (NULL (CDR (CDR V1))))
    (LET*
-    ((V5609 (CDR V5608)) (V5610 (CAR V5609)) (V5611 (CDR V5610))
-     (V5612 (CDR V5611)) (V5613 (CAR V5611)) (V5614 (CAR V5612)))
-    (LET ((Params (params V5614)))
+    ((V2 (CDR V1)) (V3 (CAR V2)) (V4 (CDR V3)) (V5 (CDR V4)) (V6 (CAR V4))
+     (V7 (CAR V5)))
+    (LET ((Params (params V7)))
      (record_source
-      (CONS 'DEFUN
-       (CONS V5613
-        (CONS Params
-         (CONS
-          (insert_type_declarations
-           (find_and_bind_choicepoints
-            (optimise_lisp
-             (CONS 'COND
-              (insert_errmess V5613 (lisp_body Params (body V5614)))))))
-          NIL))))))))
+      (test_ignore_declarations Params NIL
+       (CONS 'DEFUN
+        (CONS V6
+         (CONS Params
+          (CONS
+           (insert_type_declarations
+            (find_and_bind_choicepoints
+             (listify (optimise_lisp
+              (CONS 'COND (insert_errmess V6 (lisp_body Params (body V7))))) )))
+           NIL)))))))))
   (T (implementation_error 'compile_to_lisp))))
+
+(DEFUN listify (V1)
+  (COND
+   ((AND (CONSP V1) (EQ 'CONS (CAR V1)) (CONSP (CDR V1)) (CONSP (CDR (CDR V1)))
+         (NULL (CAR (CDR (CDR V1)))) (NULL (CDR (CDR (CDR V1)))))
+    (CONS 'LIST (CONS (listify (CAR (CDR V1))) NIL)))
+   ((AND (CONSP V1) (EQ 'CONS (CAR V1)) (CONSP (CDR V1)) (CONSP (CDR (CDR V1)))
+         (CONSP (CAR (CDR (CDR V1)))) (NULL (CDR (CDR (CDR V1))))
+         (EQ 'LIST (CAR (CAR (CDR (CDR V1))))))
+    (LET* ((V2 (CDR V1)) (V3 (CDR V2)) (V4 (CAR V3)))
+      (CONS (CAR V4) (CONS (listify (CAR V2)) (CDR V4)))))
+   ((AND (CONSP V1) (EQ 'CONS (CAR V1)) (CONSP (CDR V1)) (CONSP (CDR (CDR V1)))
+         (NULL (CDR (CDR (CDR V1)))))
+    (LET* ((V5 (CDR V1)))
+      (listify-help (listify (CAR V5)) (listify (CAR (CDR V5))))))
+   ((CONSP V1) (THE LIST (MAPCAR 'listify V1))) (T V1)))
+
+(DEFUN listify-help (V8 V9)
+  (COND
+   ((AND (CONSP V9) (EQ 'LIST (CAR V9))) (CONS (CAR V9) (CONS V8 (CDR V9))))
+   (T (CONS 'cons (CONS V8 (CONS V9 NIL))))))
+
+(DEFUN test_ignore_declarations (V90 V91 V92)
+  (COND ((AND (NULL V90) (NULL V91)) V92)
+        ((AND (NULL V90) (CONSP V92) (CONSP (CDR V92))
+              (CONSP (CDR (CDR V92))))
+         (LET* ((V93 (CDR V92)) (V94 (CDR V93)))
+           (insert_ignore V91
+                          (CONS (CAR V92)
+                                (CONS
+                                 (CAR V93)
+                                 (CONS
+                                  (CAR V94)
+                                  (CONS
+                                   (CONS
+                                    'DECLARE
+                                    (CONS (CONS 'IGNORE NIL) NIL))
+                                   (CDR V94))))))))
+        ((AND (CONSP V90) (CONSP V92) (CONSP (CDR V92))
+              (CONSP (CDR (CDR V92))))
+         (LET* ((V95 (CAR V90)) (V98 (CDR V90)))
+           (IF (EQ 'true (occurs? V95 (CDR (CDR (CDR V92)))))
+               (test_ignore_declarations V98 V91 V92)
+             (test_ignore_declarations V98 (CONS V95 V91) V92))))
+        (T (implementation_error 'test_ignore_declarations))))
+
+(DEFUN insert_ignore (V1 V2)
+ (COND ((NULL V1) V2)
+  ((AND (CONSP V1) (CONSP V2) (CONSP (CDR V2)) (CONSP (CDR (CDR V2)))
+    (CONSP (CDR (CDR (CDR V2)))) (CONSP (CAR (CDR (CDR (CDR V2)))))
+    (CONSP (CDR (CAR (CDR (CDR (CDR V2))))))
+    (CONSP (CAR (CDR (CAR (CDR (CDR (CDR V2)))))))
+    (NULL (CDR (CDR (CAR (CDR (CDR (CDR V2))))))))
+   (LET*
+    ((V3 (CDR V2)) (V4 (CDR V3)) (V5 (CDR V4)) (V6 (CAR V5)) (V7 (CDR V6))
+     (V8 (CAR V7)))
+    (insert_ignore (CDR V1)
+     (CONS (CAR V2)
+      (CONS (CAR V3)
+       (CONS (CAR V4)
+        (CONS
+         (CONS (CAR V6) (CONS (CONS (CAR V8) (CONS (CAR V1) (CDR V8))) NIL))
+         (CDR V5))))))))
+  (T (implementation_error 'insert_ignore))))
 
 (DEFUN find_and_bind_choicepoints (V5615)
  (bind_choicepoints (find_choicepoints V5615) V5615))
@@ -1054,231 +1136,525 @@
    (LET* ((V5645 (CDR V5640)) (V5647 (CAR V5645)))
     (do (store_arity V5647 (THE NUMBER (length (CAR (CDR V5645)))))
      (IF (EQ 'true (dumped?)) (write-to-dump-file V5640) 'ok)
-     (put-prop V5647 'source_code V5640))))
+     (put-prop V5647 'source_code (factorise-if-turbo V5640)))))
   (T (implementation_error 'record_source))))
+
+(DEFUN factorise-if-turbo (Code)
+  (IF (EQ *turbo* 'true)
+      (factorise Code)
+      Code))
+
+(DEFUN factorise (V2)
+  (COND
+   ((AND (CONSP V2) (CONSP (CDR V2)) (CONSP (CDR (CDR V2)))
+         (CONSP (CDR (CDR (CDR V2)))) (CONSP (CAR (CDR (CDR (CDR V2)))))
+         (NULL (CDR (CDR (CDR (CDR V2)))))
+         (EQ 'COND (CAR (CAR (CDR (CDR (CDR V2)))))))
+    (LET* ((V3 (CDR V2)) (V4 (CDR V3)))
+      (CONS (CAR V2)
+            (CONS (CAR V3)
+                  (CONS (CAR V4)
+                        (CONS
+                         (CONS 'BLOCK
+                               (CONS NIL
+                                     (CONS
+                                       (factor (CDR (CAR (CDR V4))))
+                                      NIL)))
+                         NIL))))))
+   (T V2)))
+
+(DEFUN factor (V7)
+  (COND
+   ((AND (CONSP V7) (CONSP (CAR V7)) (CONSP (CDR (CAR V7)))
+         (NULL (CDR (CDR (CAR V7))))
+         (OR (EQ 'T (CAR (CAR V7)))
+             (ABSEQUAL (CONS 'AND NIL) (CAR (CAR V7)))))
+    (return (CAR (CDR (CAR V7)))))
+   ((AND (CONSP V7) (CONSP (CAR V7)) (CONSP (CAR (CAR V7)))
+         (CONSP (CDR (CAR (CAR V7)))) (CONSP (CDR (CAR V7)))
+         (NULL (CDR (CDR (CAR V7)))) (EQ 'AND (CAR (CAR (CAR V7)))))
+    (LET* ((V8 (CAR V7)) (V9 (CAR V8)) (V10 (CDR V9)) (V11 (CAR V10)))
+      (LET ((Partition (part V11 V7 NIL)))
+        (LET ((PattP (fst Partition)))
+          (LET ((ExclP (snd Partition)))
+            (if (THE SYMBOL (empty? PattP))
+                (CONS 'IF
+                      (CONS V9
+                            (CONS (return (CAR (CDR V8)))
+                                  (CONS (factor (CDR V7)) NIL))))
+                (LET ((Tag (gensym "tag")))
+                  (LET ((FactPattP
+                         (factor
+                          (APPEND PattP
+                                  (CONS
+                                   (CONS 'T
+                                         (CONS (CONS 'GO (CONS Tag NIL)) NIL))
+                                   NIL)))))
+                    (LET ((FactExlP (factor ExclP)))
+                      (if (reachable? Tag FactPattP)
+                          (tag V11 FactPattP Tag FactExlP)
+                          (CONS 'IF
+                                (CONS V11
+                                      (CONS (turbo-optimise-car/cdr V11 FactPattP)
+                                            (CONS FactExlP NIL))))))))))))))
+   ((AND (CONSP V7) (CONSP (CAR V7)) (CONSP (CDR (CAR V7)))
+         (NULL (CDR (CDR (CAR V7)))))
+    (LET* ((V12 (CAR V7)))
+      (CONS 'IF
+            (CONS (CAR V12)
+                  (CONS (return (CAR (CDR V12)))
+                        (CONS (factor (CDR V7)) NIL))))))
+   (T (implementation_error 'factor))))
+
+(DEFUN tag (V14 V15 V16 V17)
+  (COND
+   ((AND (CONSP V17) (CONSP (CDR V17)) (NULL (CDR (CDR V17)))
+         (EQ 'GO (CAR V17)))
+    (CONS 'IF
+          (CONS V14
+                (CONS
+                 (turbo-optimise-car/cdr V14 (redirect-tag V16 (CAR (CDR V17)) V15))
+                 (CONS V17 NIL)))))
+   (T
+    (CONS 'TAGBODY
+          (CONS (CONS 'IF (CONS V14 (CONS (turbo-optimise-car/cdr V14 V15) NIL)))
+                (CONS V16 (CONS V17 NIL)))))))
+
+(DEFUN redirect-tag (V27 V28 V29)
+  (COND
+   ((AND (CONSP V29) (CONSP (CDR V29)) (NULL (CDR (CDR V29)))
+         (AND (ABSEQUAL V27 (CAR (CDR V29))) (EQ 'GO (CAR V29))))
+    (CONS (CAR V29) (CONS V28 NIL)))
+   ((CONSP V29) (THE LIST (MAPCAR #'(LAMBDA (Z) (redirect-tag V27 V28 Z)) V29)))
+   (T V29)))
+
+(DEFUN turbo-optimise-car/cdr (V43 V44)
+  (COND
+   ((AND (CONSP V43) (CONSP (CDR V43)) (NULL (CDR (CDR V43)))
+         (EQ 'CONSP (CAR V43)))
+    (occ-help (CAR (CDR V43)) V44
+     (THE SYMBOL (qi_> (THE NUMBER (occurrences (CONS 'CAR (CDR V43)) V44)) 1))
+     (THE SYMBOL
+          (qi_> (THE NUMBER (occurrences (CONS 'CDR (CDR V43)) V44)) 1))))
+   (T V44)))
+
+(DEFUN occ-help (V61 V62 V63 V64)
+  (COND
+   ((AND (EQ 'true V63) (EQ 'true V64))
+    (LET ((Car (gensym "Car")))
+      (LET ((Cdr (gensym "Cdr")))
+        (CONS 'LET
+              (CONS
+               (CONS (CONS Car (CONS (CONS 'CAR (CONS V61 NIL)) NIL))
+                     (CONS (CONS Cdr (CONS (CONS 'CDR (CONS V61 NIL)) NIL))
+                           NIL))
+               (CONS
+                (subst Cdr (CONS 'CDR (CONS V61 NIL))
+                       (subst Car (CONS 'CAR (CONS V61 NIL)) V62))
+                NIL))))))
+   ((AND (EQ 'true V63) (EQ 'false V64))
+    (LET ((Car (gensym "Car")))
+      (CONS 'LET
+            (CONS (CONS (CONS Car (CONS (CONS 'CAR (CONS V61 NIL)) NIL)) NIL)
+                  (CONS (subst Car (CONS 'CAR (CONS V61 NIL)) V62) NIL)))))
+   ((AND (EQ 'false V63) (EQ 'true V64))
+    (LET ((Cdr (gensym "Cdr")))
+      (CONS 'LET
+            (CONS (CONS (CONS Cdr (CONS (CONS 'CDR (CONS V61 NIL)) NIL)) NIL)
+                  (CONS (subst Cdr (CONS 'CDR (CONS V61 NIL)) V62) NIL)))))
+   (T V62)))
+
+(DEFUN reachable? (V74 V75)
+  (COND
+   ((AND (CONSP V75) (CONSP (CDR V75)) (NULL (CDR (CDR V75)))
+         (AND (ABSEQUAL V74 (CAR (CDR V75))) (EQ 'GO (CAR V75))))
+    'true)
+   ((CONSP V75)
+    (THE SYMBOL (or (reachable? V74 (CAR V75)) (reachable? V74 (CDR V75)))))
+   (T 'false)))
+
+(DEFUN return (V76)
+  (COND
+   ((AND (CONSP V76) (CONSP (CDR V76)) (NULL (CDR (CDR V76)))
+         (EQ 'GO (CAR V76)))
+    V76)
+   (T (CONS 'RETURN (CONS V76 NIL)))))
+
+(DEFUN part (V78 V79 V80)
+  (COND
+   ((AND (CONSP V79) (CONSP (CAR V79)) (CONSP (CAR (CAR V79)))
+         (CONSP (CDR (CAR (CAR V79)))) (CONSP (CDR (CAR V79)))
+         (NULL (CDR (CDR (CAR V79))))
+         (AND (ABSEQUAL V78 (CAR (CDR (CAR (CAR V79)))))
+              (EQ 'AND (CAR (CAR (CAR V79))))))
+    (part (CAR (CDR (CAR (CAR V79)))) (CDR V79)
+     (CONS
+      (CONS (CONS (CAR (CAR (CAR V79))) (CDR (CDR (CAR (CAR V79)))))
+            (CDR (CAR V79)))
+      V80)))
+   (T (@p (REVERSE V80) V79))))
 
 (DEFUN dumped? NIL (qi_= T (BOUNDP '*dump-file*) ))
 
 (DEFUN write-to-dump-file (V5662)
  (THE STRING (write-to-file *dump-file* V5662)))
 
-(DEFUN insert_type_declarations (V5668)
- (COND
-  ((CONSP V5668)
-   (LET* ((V5671 (CAR V5668)) (V5672 (CDR V5668)))
-    (LET ((Type (get_result_type V5671)))
-     (IF (EQ 'true (THE SYMBOL (empty? Type)))
-      (CONS V5671 (MAPCAR 'insert_type_declarations V5672))
-      (CONS 'THE
-       (CONS Type
-        (CONS (CONS V5671 (MAPCAR 'insert_type_declarations V5672)) NIL)))))))
-  (T V5668)))
+(DEFUN insert_type_declarations (V41)
+  (COND
+   ((CONSP V41)
+    (LET* ((V42 (CAR V41)))
+      (LET ((ArityF (arityf V42)))
+        (LET ((FType (get_type_of_func V42)))
+          (insert_type_declaration
+           (CONS V42 (MAPCAR 'insert_type_declarations (CDR V41))) ArityF
+           FType)))))
+   (T V41)))
 
-(DEFUN get_result_type (V5679)
- (COND
-  ((wrapper (symbol? V5679))
-   (LET ((Type (get_type_of_func V5679)))
-    (IF (EQ 'true (THE SYMBOL (empty? Type))) Type (result_type Type))))
-  (T NIL)))
+(DEFUN insert_type_declaration (V59 V60 V61)
+  (COND ((NULL V60) V59) ((NULL V61) V59)
+        ((AND (EQUAL 1 V60) (CONSP V61) (CONSP (CDR V61))
+              (EQ '--> (CAR (CDR V61))) (CONSP (CDR (CDR V61)))
+              (NULL (CDR (CDR (CDR V61)))))
+         (LET ((LispType (assoctype (CAR (CDR (CDR V61))))))
+           (IF (EQ 'true (THE SYMBOL (empty? LispType))) V59
+               (CONS 'THE (CONS LispType (CONS V59 NIL))))))
+        ((AND (CONSP V61) (CONSP (CDR V61)) (EQ '--> (CAR (CDR V61)))
+              (CONSP (CDR (CDR V61))) (NULL (CDR (CDR (CDR V61)))))
+         (insert_type_declaration V59 (THE NUMBER (- V60 1))
+                                  (CAR (CDR (CDR V61)))))
+        (T (implementation_error 'insert_type_declaration))))
+
+(DEFUN assoctype (V63) (assoctype-help V63 *assoctypes*))
+
+(DEFUN assoctype-help (V76 V77)
+  (COND ((NULL V77) NIL)
+        ((AND (CONSP V77) (CONSP (CAR V77)) (CONSP (CDR (CAR V77)))
+              (NULL (CDR (CDR (CAR V77))))
+              (wrapper (apply (CAR (CAR V77)) V76)))
+         (CAR (CDR (CAR V77))))
+        ((CONSP V77) (assoctype-help V76 (CDR V77)))
+        (T (implementation_error 'assoctype-help))))
+
+(DEFUN initialise-assoctypes ()
+  (SETQ *assoctypes*
+    (LIST (LIST #'(LAMBDA (X) (== X 'string)) 'STRING)
+          (LIST #'(LAMBDA (X) (== X 'character)) 'CHARACTER)
+          (LIST #'(LAMBDA (X) (== X 'symbol)) 'SYMBOL) 
+          (LIST #'(LAMBDA (X) (== X 'boolean)) 'SYMBOL)
+          (LIST #'(LAMBDA (X) (== X 'number)) 'NUMBER)
+          (LIST #'(LAMBDA (X) (== X 'goals)) 'LIST)
+          (LIST 'list_type? 'LIST)))) 
+
+(initialise-assoctypes)
+         
+(DEFUN list_type? (V96)
+  (COND
+   ((AND (CONSP V96) (EQ 'list (CAR V96)) (CONSP (CDR V96))
+         (NULL (CDR (CDR V96))))
+    'true)
+   (T 'false)))
 
 (DEFUN get_type_of_func (F)
  (LET ((Code (GETHASH F *sfht* NIL)))
   (IF (NULL Code) NIL (normalise_type (FUNCALL Code)))))
 
-(DEFUN result_type (V5686)
- (COND
-  ((AND (CONSP V5686) (CONSP (CDR V5686)) (EQ '--> (CAR (CDR V5686)))
-    (CONSP (CDR (CDR V5686))) (NULL (CDR (CDR (CDR V5686))))
-    (wrapper (symbol? (CAR (CDR (CDR V5686))))))
-   (assoctype (CAR (CDR (CDR V5686)))))
-  ((AND (CONSP V5686) (CONSP (CDR V5686)) (EQ '--> (CAR (CDR V5686)))
-    (CONSP (CDR (CDR V5686))) (CONSP (CAR (CDR (CDR V5686))))
-    (EQ 'list (CAR (CAR (CDR (CDR V5686)))))
-    (CONSP (CDR (CAR (CDR (CDR V5686)))))
-    (NULL (CDR (CDR (CAR (CDR (CDR V5686)))))) (NULL (CDR (CDR (CDR V5686))))
-    (wrapper (symbol? (CAR (CDR (CAR (CDR (CDR V5686))))))))
-   'LIST)
-  ((AND (CONSP V5686) (CONSP (CDR V5686)) (EQ '--> (CAR (CDR V5686)))
-    (CONSP (CDR (CDR V5686))) (NULL (CDR (CDR (CDR V5686)))))
-   (result_type (CAR (CDR (CDR V5686)))))
-  (T NIL)))
-
-(DEFUN assoctype (V5687)
- (LET ((Lisptype (ASSOC V5687 *assoctypes*)))
-  (IF (EQ 'true (THE SYMBOL (empty? Lisptype))) Lisptype
-   (head (THE LIST (tail Lisptype))))))
-
-(DEFVAR *assoctypes*
- '((string STRING) (character CHARACTER) (symbol SYMBOL) (boolean SYMBOL)
-   (number NUMBER) (goals LIST)))
-
-(DEFUN optimise_lisp (V5360)
- (COND
-  ((AND (CONSP V5360) (CONSP (CDR V5360)) (CONSP (CAR (CDR V5360)))
-    (CONSP (CDR (CAR (CDR V5360)))) (NULL (CDR (CDR (CAR (CDR V5360)))))
-    (NULL (CDR (CDR V5360)))
-    (wrapper
-     (and (qi_= 'COND (CAR V5360)) (qi_= (CAR (CAR (CDR V5360))) 'T))))
-   (optimise_lisp (CAR (CDR (CAR (CDR V5360))))))
-  ((AND (CONSP V5360) (EQ (CAR V5360) 'COND))
-   (CONS (CAR V5360)
-    (MAPCAR 'optimise_lisp (MAPCAR 'optimise_car/cdr (CDR V5360)))))
-  ((AND (CONSP V5360) (EQ 'set (CAR V5360)) (CONSP (CDR V5360))
-    (CONSP (CAR (CDR V5360))) (CONSP (CDR (CAR (CDR V5360))))
-    (NULL (CDR (CDR (CAR (CDR V5360))))) (CONSP (CDR (CDR V5360)))
-    (NULL (CDR (CDR (CDR V5360))))
-    (EQ (CAR (CAR (CDR V5360))) 'QUOTE))
-   (LET* ((V5361 (CDR V5360)))
-    (CONS 'SETQ
-     (CONS (CAR (CDR (CAR V5361)))
-      (CONS (optimise_lisp (CAR (CDR V5361))) NIL)))))  
- ((AND (CONSP V5360) (EQ 'map (CAR V5360)) (CONSP (CDR V5360))
-   (CONSP (CDR (CDR V5360))) (NULL (CDR (CDR (CDR V5360))))
-   (wrapper (simple_map? (CAR (CDR V5360)))))
-  (LET* ((V5361 (CDR V5360)))
-   (CONS 'MAPCAR
-    (CONS (CAR V5361) (CONS (optimise_lisp (CAR (CDR V5361))) NIL)))))
-  ((AND (CONSP V5360) (CONSP (CDR V5360)) (NULL (CAR (CDR V5360)))
-    (CONSP (CDR (CDR V5360))) (NULL (CDR (CDR (CDR V5360))))
-    (EQ (CAR V5360) 'LET*))
-   (optimise_lisp (CAR (CDR (CDR V5360)))))
-  ((AND (CONSP V5360) (EQ 'value (CAR V5360)) (CONSP (CDR V5360))
-    (CONSP (CAR (CDR V5360))) (CONSP (CDR (CAR (CDR V5360))))
-    (NULL (CDR (CDR (CAR (CDR V5360))))) (NULL (CDR (CDR V5360)))
-    (wrapper
-     (and (qi_= (CAR (CAR (CDR V5360))) 'QUOTE)
-      (symbol? (CAR (CDR (CAR (CDR V5360))))))))
-   (CAR (CDR (CAR (CDR V5360)))))
-  ((AND (CONSP V5360) (EQ 'wrapper (CAR V5360)) (CONSP (CDR V5360))
-    (CONSP (CAR (CDR V5360))) (EQ 'qi_= (CAR (CAR (CDR V5360))))
-    (CONSP (CDR (CAR (CDR V5360)))) (NULL (CAR (CDR (CAR (CDR V5360)))))
-    (CONSP (CDR (CDR (CAR (CDR V5360)))))
-    (NULL (CDR (CDR (CDR (CAR (CDR V5360)))))) (NULL (CDR (CDR V5360))))
-   (CONS 'NULL (CONS (optimise_lisp (CAR (CDR (CDR (CAR (CDR V5360)))))) NIL)))
-  ((AND (CONSP V5360) (EQ 'wrapper (CAR V5360)) (CONSP (CDR V5360))
-    (CONSP (CAR (CDR V5360))) (EQ 'qi_= (CAR (CAR (CDR V5360))))
-    (CONSP (CDR (CAR (CDR V5360)))) (CONSP (CAR (CDR (CAR (CDR V5360)))))
-    (CONSP (CDR (CAR (CDR (CAR (CDR V5360))))))
-    (NULL (CDR (CDR (CAR (CDR (CAR (CDR V5360)))))))
-    (CONSP (CDR (CDR (CAR (CDR V5360)))))
-    (NULL (CDR (CDR (CDR (CAR (CDR V5360)))))) (NULL (CDR (CDR V5360)))
-    (wrapper
-     (and (qi_= (CAR (CAR (CDR (CAR (CDR V5360))))) 'QUOTE)
-      (or (symbol? (CAR (CDR (CAR (CDR (CAR (CDR V5360)))))))
-       (boolean? (CAR (CDR (CAR (CDR (CAR (CDR V5360)))))))))))
-   (LET* ((V5362 (CDR V5360)) (V5363 (CAR V5362)) (V5364 (CDR V5363)))
-    (CONS 'EQ
-     (CONS (CAR V5364) (CONS (optimise_lisp (CAR (CDR V5364))) NIL)))))
-  ((AND (CONSP V5360) (EQ 'wrapper (CAR V5360)) (CONSP (CDR V5360))
-    (CONSP (CAR (CDR V5360))) (EQ 'qi_= (CAR (CAR (CDR V5360))))
-    (CONSP (CDR (CAR (CDR V5360)))) (CONSP (CDR (CDR (CAR (CDR V5360)))))
-    (NULL (CDR (CDR (CDR (CAR (CDR V5360)))))) (NULL (CDR (CDR V5360)))
-    (wrapper
-     (or (number? (CAR (CDR (CAR (CDR V5360)))))
-      (string? (CAR (CDR (CAR (CDR V5360))))))))
-   (LET* ((V5365 (CDR V5360)) (V5366 (CAR V5365)) (V5367 (CDR V5366)))
-    (CONS 'EQUAL
-     (CONS (CAR V5367) (CONS (optimise_lisp (CAR (CDR V5367))) NIL)))))
-  ((AND (CONSP V5360) (EQ 'wrapper (CAR V5360)) (CONSP (CDR V5360))
-    (CONSP (CAR (CDR V5360))) (EQ 'qi_= (CAR (CAR (CDR V5360))))
-    (CONSP (CDR (CAR (CDR V5360)))) (CONSP (CDR (CDR (CAR (CDR V5360)))))
-    (NULL (CDR (CDR (CDR (CAR (CDR V5360)))))) (NULL (CDR (CDR V5360)))
-    (wrapper (character? (CAR (CDR (CAR (CDR V5360)))))))
-   (LET* ((V5368 (CDR V5360)) (V5369 (CAR V5368)) (V5370 (CDR V5369)))
-    (CONS 'EQ
-     (CONS (CAR V5370) (CONS (optimise_lisp (CAR (CDR V5370))) NIL)))))
-  ((AND (CONSP V5360) (EQ 'input+ (CAR V5360)) (CONSP (CDR V5360))
-    (EQ '$$ (CAR (CDR V5360))) (CONSP (CDR (CDR V5360)))
-    (NULL (CDR (CDR (CDR V5360)))))
-   V5360)
-  ((AND (CONSP V5360) (EQ 'list (CAR V5360)))
-   (CONS 'LIST (MAPCAR 'optimise_lisp (CDR V5360))))
-  ((AND (CONSP V5360) (EQ 'cons (CAR V5360)) (CONSP (CDR V5360))
-    (CONSP (CDR (CDR V5360))) (NULL (CDR (CDR (CDR V5360)))))
-   (LET* ((V5371 (CDR V5360)))
-    (CONS 'CONS
-     (CONS (optimise_lisp (CAR V5371))
-      (CONS (optimise_lisp (CAR (CDR V5371))) NIL)))))
-  ((AND (CONSP V5360) (EQ 'reverse (CAR V5360)) (CONSP (CDR V5360))
-    (NULL (CDR (CDR V5360))))
-   (CONS 'REVERSE (CONS (optimise_lisp (CAR (CDR V5360))) NIL)))
-  ((AND (CONSP V5360) (EQ 'append (CAR V5360)) (CONSP (CDR V5360))
-    (CONSP (CDR (CDR V5360))) (NULL (CDR (CDR (CDR V5360)))))
-   (LET* ((V5372 (CDR V5360)))
-    (CONS 'APPEND
-     (CONS (optimise_lisp (CAR V5372))
-      (CONS (optimise_lisp (CAR (CDR V5372))) NIL)))))
-  ((AND (CONSP V5360) (EQ 'wrapper (CAR V5360)) (CONSP (CDR V5360))
-    (CONSP (CAR (CDR V5360))) (EQ 'not (CAR (CAR (CDR V5360))))
-    (CONSP (CDR (CAR (CDR V5360)))) (CONSP (CAR (CDR (CAR (CDR V5360)))))
-    (EQ 'escape? (CAR (CAR (CDR (CAR (CDR V5360))))))
-    (CONSP (CDR (CAR (CDR (CAR (CDR V5360))))))
-    (CONSP (CAR (CDR (CAR (CDR (CAR (CDR V5360)))))))
-    (CONSP (CDR (CAR (CDR (CAR (CDR (CAR (CDR V5360))))))))
-    (CONSP (CDR (CDR (CAR (CDR (CAR (CDR (CAR (CDR V5360)))))))))
-    (CONSP (CAR (CDR (CDR (CAR (CDR (CAR (CDR (CAR (CDR V5360))))))))))
-    (EQ 'fail-if
-     (CAR (CAR (CDR (CDR (CAR (CDR (CAR (CDR (CAR (CDR V5360)))))))))))
-    (CONSP (CDR (CAR (CDR (CDR (CAR (CDR (CAR (CDR (CAR (CDR V5360)))))))))))
-    (CONSP
-     (CAR (CDR (CAR (CDR (CDR (CAR (CDR (CAR (CDR (CAR (CDR V5360))))))))))))
-    (CONSP
-     (CDR
-      (CAR (CDR (CAR (CDR (CDR (CAR (CDR (CAR (CDR (CAR (CDR V5360)))))))))))))
-    (NULL
-     (CDR
-      (CDR
-       (CAR
-        (CDR (CAR (CDR (CDR (CAR (CDR (CAR (CDR (CAR (CDR V5360))))))))))))))
-    (CONSP
-     (CDR (CDR (CAR (CDR (CDR (CAR (CDR (CAR (CDR (CAR (CDR V5360))))))))))))
-    (NULL
-     (CDR
-      (CDR (CDR (CAR (CDR (CDR (CAR (CDR (CAR (CDR (CAR (CDR V5360)))))))))))))
-    (NULL (CDR (CDR (CDR (CAR (CDR (CAR (CDR (CAR (CDR V5360))))))))))
-    (NULL (CDR (CDR (CAR (CDR (CAR (CDR V5360)))))))
-    (NULL (CDR (CDR (CAR (CDR V5360))))) (NULL (CDR (CDR V5360)))
-    (wrapper
-     (and
-      (qi_=
-       (CAR
-        (CAR
-         (CDR (CAR (CDR (CDR (CAR (CDR (CAR (CDR (CAR (CDR V5360))))))))))))
-       'QUOTE)
-      (symbol?
-       (CAR
-        (CDR
-         (CAR
+(DEFUN optimise_lisp (V405)
+  (COND
+   ((AND (CONSP V405) (CONSP (CDR V405)) (CONSP (CAR (CDR V405)))
+         (CONSP (CDR (CAR (CDR V405)))) (NULL (CDR (CDR (CAR (CDR V405)))))
+         (NULL (CDR (CDR V405)))
+         (wrapper
+          (and (qi_= 'COND (CAR V405)) (qi_= (CAR (CAR (CDR V405))) T))))
+    (optimise_lisp (CAR (CDR (CAR (CDR V405))))))
+   ((AND (CONSP V405) (wrapper (qi_= (CAR V405) 'COND)))
+    (CONS (CAR V405)
+          (MAPCAR 'optimise_lisp (MAPCAR 'optimise_car/cdr (CDR V405)))))
+   ((AND (CONSP V405) (EQ 'set (CAR V405)) (CONSP (CDR V405))
+         (CONSP (CAR (CDR V405))) (CONSP (CDR (CAR (CDR V405))))
+         (NULL (CDR (CDR (CAR (CDR V405))))) (CONSP (CDR (CDR V405)))
+         (NULL (CDR (CDR (CDR V405))))
+         (wrapper (qi_= (CAR (CAR (CDR V405))) 'QUOTE)))
+    (LET* ((V406 (CDR V405)))
+      (CONS 'SETQ
+            (CONS (CAR (CDR (CAR V406)))
+                  (CONS (optimise_lisp (CAR (CDR V406))) NIL)))))
+   ((AND (CONSP V405) (EQ 'map (CAR V405)) (CONSP (CDR V405))
+         (CONSP (CDR (CDR V405))) (NULL (CDR (CDR (CDR V405))))
+         (wrapper (simple_map? (CAR (CDR V405)))))
+    (LET* ((V407 (CDR V405)))
+      (CONS 'MAPCAR
+            (CONS (CAR V407) (CONS (optimise_lisp (CAR (CDR V407))) NIL)))))
+   ((AND (CONSP V405) (CONSP (CDR V405)) (NULL (CAR (CDR V405)))
+         (CONSP (CDR (CDR V405))) (NULL (CDR (CDR (CDR V405))))
+         (wrapper (qi_= (CAR V405) 'LET*)))
+    (optimise_lisp (CAR (CDR (CDR V405)))))
+   ((AND (CONSP V405) (EQ 'value (CAR V405)) (CONSP (CDR V405))
+         (CONSP (CAR (CDR V405))) (CONSP (CDR (CAR (CDR V405))))
+         (NULL (CDR (CDR (CAR (CDR V405))))) (NULL (CDR (CDR V405)))
+         (wrapper
+          (and (qi_= (CAR (CAR (CDR V405))) 'QUOTE)
+               (symbol? (CAR (CDR (CAR (CDR V405))))))))
+    (CAR (CDR (CAR (CDR V405)))))
+   ((AND (CONSP V405) (EQ 'length (CAR V405)) (CONSP (CDR V405))
+         (NULL (CDR (CDR V405))))
+    (CONS 'LIST-LENGTH (CONS (optimise_lisp (CAR (CDR V405))) NIL)))
+   ((AND (CONSP V405) (EQ 'wrapper (CAR V405)) (CONSP (CDR V405))
+         (CONSP (CAR (CDR V405))) (EQ 'qi_= (CAR (CAR (CDR V405))))
+         (CONSP (CDR (CAR (CDR V405)))) (NULL (CAR (CDR (CAR (CDR V405)))))
+         (CONSP (CDR (CDR (CAR (CDR V405)))))
+         (NULL (CDR (CDR (CDR (CAR (CDR V405)))))) (NULL (CDR (CDR V405))))
+    (CONS 'NULL (CONS (optimise_lisp (CAR (CDR (CDR (CAR (CDR V405)))))) NIL)))
+   ((AND (CONSP V405) (EQ 'wrapper (CAR V405)) (CONSP (CDR V405))
+         (CONSP (CAR (CDR V405))) (EQ 'qi_= (CAR (CAR (CDR V405))))
+         (CONSP (CDR (CAR (CDR V405)))) (CONSP (CDR (CDR (CAR (CDR V405)))))
+         (NULL (CAR (CDR (CDR (CAR (CDR V405))))))
+         (NULL (CDR (CDR (CDR (CAR (CDR V405)))))) (NULL (CDR (CDR V405))))
+    (CONS 'NULL (CONS (optimise_lisp (CAR (CDR (CAR (CDR V405))))) NIL)))
+   ((AND (CONSP V405) (EQ 'wrapper (CAR V405)) (CONSP (CDR V405))
+         (CONSP (CAR (CDR V405))) (EQ 'qi_= (CAR (CAR (CDR V405))))
+         (CONSP (CDR (CAR (CDR V405)))) (CONSP (CAR (CDR (CAR (CDR V405)))))
+         (CONSP (CDR (CAR (CDR (CAR (CDR V405))))))
+         (NULL (CDR (CDR (CAR (CDR (CAR (CDR V405)))))))
+         (CONSP (CDR (CDR (CAR (CDR V405)))))
+         (NULL (CDR (CDR (CDR (CAR (CDR V405)))))) (NULL (CDR (CDR V405)))
+         (wrapper
+          (and (qi_= (CAR (CAR (CDR (CAR (CDR V405))))) 'QUOTE)
+               (or (symbol? (CAR (CDR (CAR (CDR (CAR (CDR V405)))))))
+                   (boolean? (CAR (CDR (CAR (CDR (CAR (CDR V405)))))))))))
+    (LET* ((V408 (CDR V405)) (V409 (CAR V408)) (V410 (CDR V409)))
+      (CONS 'EQ
+            (CONS (CAR V410) (CONS (optimise_lisp (CAR (CDR V410))) NIL)))))
+   ((AND (CONSP V405) (EQ 'wrapper (CAR V405)) (CONSP (CDR V405))
+         (CONSP (CAR (CDR V405))) (EQ 'qi_= (CAR (CAR (CDR V405))))
+         (CONSP (CDR (CAR (CDR V405)))) (CONSP (CDR (CDR (CAR (CDR V405)))))
+         (CONSP (CAR (CDR (CDR (CAR (CDR V405))))))
+         (CONSP (CDR (CAR (CDR (CDR (CAR (CDR V405)))))))
+         (NULL (CDR (CDR (CAR (CDR (CDR (CAR (CDR V405))))))))
+         (NULL (CDR (CDR (CDR (CAR (CDR V405)))))) (NULL (CDR (CDR V405)))
+         (wrapper
+          (and (qi_= (CAR (CAR (CDR (CDR (CAR (CDR V405)))))) 'QUOTE)
+               (or (symbol? (CAR (CDR (CAR (CDR (CDR (CAR (CDR V405))))))))
+                   (boolean?
+                    (CAR (CDR (CAR (CDR (CDR (CAR (CDR V405))))))))))))
+    (LET* ((V411 (CDR V405)) (V412 (CAR V411)) (V413 (CDR V412)))
+      (CONS 'EQ
+            (CONS (CAR (CDR V413)) (CONS (optimise_lisp (CAR V413)) NIL)))))
+   ((AND (CONSP V405) (EQ 'wrapper (CAR V405)) (CONSP (CDR V405))
+         (CONSP (CAR (CDR V405))) (EQ 'qi_= (CAR (CAR (CDR V405))))
+         (CONSP (CDR (CAR (CDR V405)))) (CONSP (CDR (CDR (CAR (CDR V405)))))
+         (NULL (CDR (CDR (CDR (CAR (CDR V405)))))) (NULL (CDR (CDR V405)))
+         (wrapper
+          (or (number? (CAR (CDR (CAR (CDR V405)))))
+              (number? (CAR (CDR (CDR (CAR (CDR V405)))))))))
+    (LET* ((V414 (CDR V405)) (V415 (CAR V414)) (V416 (CDR V415)))
+      (CONS 'EQL
+            (CONS (optimise_lisp (CAR V416))
+                  (CONS (optimise_lisp (CAR (CDR V416))) NIL)))))
+   ((AND (CONSP V405) (EQ 'wrapper (CAR V405)) (CONSP (CDR V405))
+         (CONSP (CAR (CDR V405))) (EQ 'qi_= (CAR (CAR (CDR V405))))
+         (CONSP (CDR (CAR (CDR V405)))) (CONSP (CDR (CDR (CAR (CDR V405)))))
+         (NULL (CDR (CDR (CDR (CAR (CDR V405)))))) (NULL (CDR (CDR V405)))
+         (wrapper
+          (or (character? (CAR (CDR (CAR (CDR V405)))))
+              (character? (CAR (CDR (CDR (CAR (CDR V405)))))))))
+    (LET* ((V417 (CDR V405)) (V418 (CAR V417)) (V419 (CDR V418)))
+      (CONS 'EQL
+            (CONS (optimise_lisp (CAR V419))
+                  (CONS (optimise_lisp (CAR (CDR V419))) NIL)))))
+   ((AND (CONSP V405) (EQ 'wrapper (CAR V405)) (CONSP (CDR V405))
+         (CONSP (CAR (CDR V405))) (EQ 'qi_= (CAR (CAR (CDR V405))))
+         (CONSP (CDR (CAR (CDR V405)))) (CONSP (CDR (CDR (CAR (CDR V405)))))
+         (NULL (CDR (CDR (CDR (CAR (CDR V405)))))) (NULL (CDR (CDR V405))))
+    (LET* ((V420 (CDR V405)) (V421 (CAR V420)) (V422 (CDR V421)))
+      (CONS 'ABSEQUAL
+            (CONS (optimise_lisp (CAR V422))
+                  (CONS (optimise_lisp (CAR (CDR V422))) NIL)))))
+   ((AND (CONSP V405) (EQ 'input+ (CAR V405)) (CONSP (CDR V405))
+         (EQ '$$ (CAR (CDR V405))) (CONSP (CDR (CDR V405)))
+         (NULL (CDR (CDR (CDR V405)))))
+    V405)
+   ((AND (CONSP V405) (EQ 'list (CAR V405)))
+    (CONS 'LIST (MAPCAR 'optimise_lisp (CDR V405))))
+   ((AND (CONSP V405) (EQ 'cons (CAR V405)) (CONSP (CDR V405))
+         (CONSP (CDR (CDR V405))) (NULL (CDR (CDR (CDR V405)))))
+    (LET* ((V423 (CDR V405)))
+      (CONS 'CONS
+            (CONS (optimise_lisp (CAR V423))
+                  (CONS (optimise_lisp (CAR (CDR V423))) NIL)))))
+   ((AND (CONSP V405) (EQ 'reverse (CAR V405)) (CONSP (CDR V405))
+         (NULL (CDR (CDR V405))))
+    (CONS 'REVERSE (CONS (optimise_lisp (CAR (CDR V405))) NIL)))
+   ((AND (CONSP V405) (EQ 'append (CAR V405)) (CONSP (CDR V405))
+         (CONSP (CDR (CDR V405))) (NULL (CDR (CDR (CDR V405)))))
+    (LET* ((V424 (CDR V405)))
+      (CONS 'APPEND
+            (CONS (optimise_lisp (CAR V424))
+                  (CONS (optimise_lisp (CAR (CDR V424))) NIL)))))
+   ((AND (CONSP V405) (EQ 'wrapper (CAR V405)) (CONSP (CDR V405))
+         (CONSP (CAR (CDR V405))) (EQ 'not (CAR (CAR (CDR V405))))
+         (CONSP (CDR (CAR (CDR V405)))) (CONSP (CAR (CDR (CAR (CDR V405)))))
+         (EQ 'escape? (CAR (CAR (CDR (CAR (CDR V405))))))
+         (CONSP (CDR (CAR (CDR (CAR (CDR V405))))))
+         (CONSP (CAR (CDR (CAR (CDR (CAR (CDR V405)))))))
+         (CONSP (CDR (CAR (CDR (CAR (CDR (CAR (CDR V405))))))))
+         (CONSP (CDR (CDR (CAR (CDR (CAR (CDR (CAR (CDR V405)))))))))
+         (CONSP (CAR (CDR (CDR (CAR (CDR (CAR (CDR (CAR (CDR V405))))))))))
+         (EQ 'fail-if
+             (CAR (CAR (CDR (CDR (CAR (CDR (CAR (CDR (CAR (CDR V405)))))))))))
+         (CONSP
+          (CDR (CAR (CDR (CDR (CAR (CDR (CAR (CDR (CAR (CDR V405)))))))))))
+         (CONSP
+          (CAR
+           (CDR (CAR (CDR (CDR (CAR (CDR (CAR (CDR (CAR (CDR V405))))))))))))
+         (CONSP
           (CDR
-           (CAR (CDR (CDR (CAR (CDR (CAR (CDR (CAR (CDR V5360)))))))))))))))))
-   (LET*
-    ((V5373 (CDR V5360)) (V5374 (CAR V5373)) (V5375 (CDR V5374))
-     (V5376 (CAR V5375)) (V5377 (CDR V5376)) (V5378 (CAR V5377))
-     (V5379 (CDR V5378)) (V5380 (CDR V5379)) (V5381 (CAR V5380))
-     (V5382 (CDR V5381)))
+           (CAR
+            (CDR (CAR (CDR (CDR (CAR (CDR (CAR (CDR (CAR (CDR V405)))))))))))))
+         (NULL
+          (CDR
+           (CDR
+            (CAR
+             (CDR
+              (CAR (CDR (CDR (CAR (CDR (CAR (CDR (CAR (CDR V405))))))))))))))
+         (CONSP
+          (CDR
+           (CDR (CAR (CDR (CDR (CAR (CDR (CAR (CDR (CAR (CDR V405))))))))))))
+         (NULL
+          (CDR
+           (CDR
+            (CDR (CAR (CDR (CDR (CAR (CDR (CAR (CDR (CAR (CDR V405)))))))))))))
+         (NULL (CDR (CDR (CDR (CAR (CDR (CAR (CDR (CAR (CDR V405))))))))))
+         (NULL (CDR (CDR (CAR (CDR (CAR (CDR V405)))))))
+         (NULL (CDR (CDR (CAR (CDR V405))))) (NULL (CDR (CDR V405)))
+         (wrapper
+          (and
+           (qi_=
+            (CAR
+             (CAR
+              (CDR
+               (CAR (CDR (CDR (CAR (CDR (CAR (CDR (CAR (CDR V405))))))))))))
+            'QUOTE)
+           (symbol?
+            (CAR
+             (CDR
+              (CAR
+               (CDR
+                (CAR
+                 (CDR (CDR (CAR (CDR (CAR (CDR (CAR (CDR V405)))))))))))))))))
+    (LET* ((V425 (CDR V405))
+           (V426 (CAR V425))
+           (V427 (CDR V426))
+           (V428 (CAR V427))
+           (V429 (CDR V428))
+           (V430 (CAR V429))
+           (V431 (CDR V430))
+           (V432 (CDR V431))
+           (V433 (CAR V432))
+           (V434 (CDR V433)))
+      (CONS 'NOT
+            (CONS
+             (CONS 'EQ
+                   (CONS (CONS 'QUOTE (CONS 'true NIL))
+                         (CONS
+                          (optimise_lisp
+                           (CONS (CAR (CDR (CAR V434)))
+                                 (CONS
+                                  (CONS (CAR V430)
+                                        (CONS (CAR V431) (CDR V434)))
+                                  NIL)))
+                          NIL)))
+             NIL))))
+   ((AND (CONSP V405) (EQ 'wrapper (CAR V405)) (CONSP (CDR V405))
+         (CONSP (CAR (CDR V405))) (EQ 'and (CAR (CAR (CDR V405))))
+         (CONSP (CDR (CAR (CDR V405)))) (CONSP (CDR (CDR (CAR (CDR V405)))))
+         (NULL (CDR (CDR (CDR (CAR (CDR V405)))))) (NULL (CDR (CDR V405))))
+    (LET* ((V435 (CDR V405)) (V436 (CAR V435)) (V437 (CDR V436)))
+      (CONS 'AND
+            (CONS (optimise_lisp (CONS 'wrapper (CONS (CAR V437) NIL)))
+                  (CONS (optimise_lisp (CONS 'wrapper (CDR V437))) NIL)))))
+   ((AND (CONSP V405) (EQ 'wrapper (CAR V405)) (CONSP (CDR V405))
+         (CONSP (CAR (CDR V405))) (EQ 'or (CAR (CAR (CDR V405))))
+         (CONSP (CDR (CAR (CDR V405)))) (CONSP (CDR (CDR (CAR (CDR V405)))))
+         (NULL (CDR (CDR (CDR (CAR (CDR V405)))))) (NULL (CDR (CDR V405))))
+    (LET* ((V438 (CDR V405)) (V439 (CAR V438)) (V440 (CDR V439)))
+      (CONS 'OR
+            (CONS (optimise_lisp (CONS 'wrapper (CONS (CAR V440) NIL)))
+                  (CONS (optimise_lisp (CONS 'wrapper (CDR V440))) NIL)))))
+   ((AND (CONSP V405) (EQ 'wrapper (CAR V405)) (CONSP (CDR V405))
+         (CONSP (CAR (CDR V405))) (EQ 'not (CAR (CAR (CDR V405))))
+         (CONSP (CDR (CAR (CDR V405)))) (NULL (CDR (CDR (CAR (CDR V405)))))
+         (NULL (CDR (CDR V405))))
     (CONS 'NOT
-     (CONS
-      (CONS 'EQ
-       (CONS (CONS 'QUOTE (CONS 'true NIL))
-        (CONS
-         (optimise_lisp
-          (CONS (CAR (CDR (CAR V5382)))
-           (CONS (CONS (CAR V5378) (CONS (CAR V5379) (CDR V5382))) NIL)))
-         NIL)))
-      NIL))))
-  ((AND (CONSP V5360) (EQ 'if (CAR V5360)) (CONSP (CDR V5360))
-    (CONSP (CDR (CDR V5360))) (CONSP (CDR (CDR (CDR V5360))))
-    (NULL (CDR (CDR (CDR (CDR V5360))))))
-   (LET* ((V5383 (CDR V5360)) (V5384 (CDR V5383)))
-    (CONS 'IF
-     (CONS
-      (CONS 'EQ
-       (CONS (CONS 'QUOTE (CONS 'true NIL))
-        (CONS (optimise_lisp (CAR V5383)) NIL)))
-      (CONS (optimise_lisp (CAR V5384))
-       (CONS (optimise_lisp (CAR (CDR V5384))) NIL))))))
-  ((CONSP V5360) (MAPCAR 'optimise_lisp V5360)) 
-  (T V5360)))
+          (CONS (optimise_lisp (CONS 'wrapper (CDR (CAR (CDR V405))))) NIL)))
+   ((AND (CONSP V405) (EQ 'if (CAR V405)) (CONSP (CDR V405))
+         (CONSP (CAR (CDR V405))) (EQ 'wrapper (CAR (CAR (CDR V405))))
+         (CONSP (CDR (CAR (CDR V405)))) (NULL (CDR (CDR (CAR (CDR V405)))))
+         (CONSP (CDR (CDR V405))) (CONSP (CDR (CDR (CDR V405))))
+         (NULL (CDR (CDR (CDR (CDR V405))))))
+    (LET* ((V441 (CDR V405)) (V442 (CDR V441)))
+      (CONS 'IF
+            (CONS (optimise_lisp (CAR (CDR (CAR V441))))
+                  (CONS (optimise_lisp (CAR V442))
+                        (CONS (optimise_lisp (CAR (CDR V442))) NIL))))))
+   ((AND (CONSP V405) (EQ 'wrapper (CAR V405)) (CONSP (CDR V405))
+         (CONSP (CAR (CDR V405))) (EQ 'cons? (CAR (CAR (CDR V405))))
+         (CONSP (CDR (CAR (CDR V405)))) (NULL (CDR (CDR (CAR (CDR V405)))))
+         (NULL (CDR (CDR V405))))
+    (CONS 'CONSP (CONS (optimise_lisp (CAR (CDR (CAR (CDR V405))))) NIL)))
+   ((AND (CONSP V405) (EQ 'wrapper (CAR V405)) (CONSP (CDR V405))
+         (CONSP (CAR (CDR V405))) (EQ 'character? (CAR (CAR (CDR V405))))
+         (CONSP (CDR (CAR (CDR V405)))) (NULL (CDR (CDR (CAR (CDR V405)))))
+         (NULL (CDR (CDR V405))))
+    (CONS 'CHARACTERP (CONS (optimise_lisp (CAR (CDR (CAR (CDR V405))))) NIL)))
+    ((AND (CONSP V405) (EQ 'wrapper (CAR V405)) (CONSP (CDR V405))
+         (CONSP (CAR (CDR V405))) (EQ 'boolean? (CAR (CAR (CDR V405))))
+         (CONSP (CDR (CAR (CDR V405)))) (NULL (CDR (CDR (CAR (CDR V405)))))
+         (NULL (CDR (CDR V405))))
+    (CONS 'MEMBER
+          (CONS (optimise_lisp (CAR (CDR (CAR (CDR V405)))))
+                (CONS (CONS 'QUOTE (CONS (CONS 'true (CONS 'false NIL)) NIL))
+                      NIL))))
+   ((AND (CONSP V405) (EQ 'wrapper (CAR V405)) (CONSP (CDR V405))
+         (CONSP (CAR (CDR V405))) (EQ 'tuple? (CAR (CAR (CDR V405))))
+         (CONSP (CDR (CAR (CDR V405)))) (NULL (CDR (CDR (CAR (CDR V405)))))
+         (NULL (CDR (CDR V405))))
+    (CONS 'TUPLE-P (CONS (optimise_lisp (CAR (CDR (CAR (CDR V405))))) NIL)))
+   ((AND (CONSP V405) (EQ 'wrapper (CAR V405)) (CONSP (CDR V405))
+         (CONSP (CAR (CDR V405))) (EQ 'number? (CAR (CAR (CDR V405))))
+         (CONSP (CDR (CAR (CDR V405)))) (NULL (CDR (CDR (CAR (CDR V405)))))
+         (NULL (CDR (CDR V405))))
+    (CONS 'NUMBERP (CONS (optimise_lisp (CAR (CDR (CAR (CDR V405))))) NIL)))
+   ((AND (CONSP V405) (EQ 'wrapper (CAR V405)) (CONSP (CDR V405))
+         (CONSP (CAR (CDR V405))) (EQ 'rational? (CAR (CAR (CDR V405))))
+         (CONSP (CDR (CAR (CDR V405)))) (NULL (CDR (CDR (CAR (CDR V405)))))
+         (NULL (CDR (CDR V405))))
+    (CONS 'RATIONALP (CONS (optimise_lisp (CAR (CDR (CAR (CDR V405))))) NIL)))
+   ((AND (CONSP V405) (EQ 'wrapper (CAR V405)) (CONSP (CDR V405))
+         (CONSP (CAR (CDR V405))) (EQ 'integer? (CAR (CAR (CDR V405))))
+         (CONSP (CDR (CAR (CDR V405)))) (NULL (CDR (CDR (CAR (CDR V405)))))
+         (NULL (CDR (CDR V405))))
+    (CONS 'INTEGERP (CONS (optimise_lisp (CAR (CDR (CAR (CDR V405))))) NIL)))
+   ((AND (CONSP V405) (EQ 'wrapper (CAR V405)) (CONSP (CDR V405))
+         (CONSP (CAR (CDR V405))) (EQ 'string? (CAR (CAR (CDR V405))))
+         (CONSP (CDR (CAR (CDR V405)))) (NULL (CDR (CDR (CAR (CDR V405)))))
+         (NULL (CDR (CDR V405))))
+    (CONS 'STRINGP (CONS (optimise_lisp (CAR (CDR (CAR (CDR V405))))) NIL)))
+   ((AND (CONSP V405) (EQ '+ (CAR V405)) (CONSP (CDR V405))
+         (EQUAL 1 (CAR (CDR V405))) (CONSP (CDR (CDR V405)))
+         (NULL (CDR (CDR (CDR V405)))))
+    (CONS '1+ (CONS (optimise_lisp (CAR (CDR (CDR V405)))) NIL)))
+   ((AND (CONSP V405) (EQ '+ (CAR V405)) (CONSP (CDR V405))
+         (CONSP (CDR (CDR V405))) (EQUAL 1 (CAR (CDR (CDR V405))))
+         (NULL (CDR (CDR (CDR V405)))))
+    (CONS '1+ (CONS (optimise_lisp (CAR (CDR V405))) NIL)))
+   ((AND (CONSP V405) (EQ '- (CAR V405)) (CONSP (CDR V405))
+         (CONSP (CDR (CDR V405))) (EQUAL 1 (CAR (CDR (CDR V405))))
+         (NULL (CDR (CDR (CDR V405)))))
+    (CONS '1- (CONS (optimise_lisp (CAR (CDR V405))) NIL)))
+   ((CONSP V405) (MAPCAR 'optimise_lisp V405)) 
+   (T V405)))
+
+(DEFUN pp (X) (PPRINT (source_code X)))
 
 (DEFUN simple_map? (V5364)
  (COND
@@ -1287,11 +1663,19 @@
    'true)
   (T 'false)))
 
- (DEFUN optimise_car/cdr (V5770)
+(SETQ *turbo* 'false)
+
+(DEFUN optimise_car/cdr (V5776)
  (COND
-  ((AND (CONSP V5770) (CONSP (CDR V5770)) (NULL (CDR (CDR V5770))))
-   (CONS (CAR V5770) (CONS (occ* (CAR (CDR V5770))) NIL)))
+  ((EQ *turbo* 'true) V5776)
+  ((AND (CONSP V5776) (CONSP (CDR V5776)) (NULL (CDR (CDR V5776))))
+   (CONS (CAR V5776) (CONS (occ* (CAR (CDR V5776))) NIL)))
   (T (implementation_error 'optimise_car/cdr))))
+
+(DEFUN turbo (V14)
+  (COND ((EQ '+ V14) (SETQ *turbo* 'true)) 
+        ((EQ '- V14) (SETQ *turbo* 'false))
+        (T (ERROR "turbo expects a + or a -.~%"))))
 
 (DEFUN isocar/cdrs (V5775)
  (COND
@@ -1303,12 +1687,6 @@
    (CONS V5775 NIL))
   ((CONSP V5775) (APPEND (isocar/cdrs (CAR V5775)) (isocar/cdrs (CDR V5775))))
   (T NIL)))
-
-(DEFUN optimise_car/cdr (V5776)
- (COND
-  ((AND (CONSP V5776) (CONSP (CDR V5776)) (NULL (CDR (CDR V5776))))
-   (CONS (CAR V5776) (CONS (occ* (CAR (CDR V5776))) NIL)))
-  (T (implementation_error 'optimise_car/cdr))))
 
 (DEFUN occ* (V5777) (occ** NIL (isocar/cdrs V5777) V5777 'unoptimised))
 
@@ -1552,7 +1930,7 @@
     read-file 1 read-chars-as-stringlist 2 rational? 1 real? 1 refine 4 remove 2
     reverse 1 rotate 3 round 1 snd 1 solved? 1 specialise 1 spy 1 sqrt 1 step 1
     string? 1 strong-warning 1 subst 3 swap 3 symbol? 1 system 1 tail 1 tc 1 theory-size 1 thin
-    2 thm-intro 1 time 1 time-proof 3 to-goals 2 track 1 tuple 2 unprofile 1
+    2 thm-intro 1 time 1 time-proof 3 to-goals 2 track 1 tuple 2 turbo 1 unprofile 1
     undebug 1 union 2 unprf 1 untrack 1 unspecialise 1 value 1 variable? 1 version 1 warn 1 write-to-file 2 y-or-n? 1 
     + 2 * 2 / 2 - 2 == 2 @p 2 preclude 1 include 1 preclude-all-but 1 include-all-but 1)))
 
@@ -1562,7 +1940,8 @@
  (COND ((NULL V5883) NIL)
   ((AND (CONSP V5883) (CONSP (CDR V5883)))
    (LET* ((V5884 (CDR V5883)))
-    (do (store_arity (CAR V5883) (CAR V5884)) (store_arities (CDR V5884)))))
+    (store_arity (CAR V5883) (CAR V5884)) 
+    (store_arities (CDR V5884))))
   (T (implementation_error 'store_arities))))
 
 (DEFUN store_arity (FUNC N)
@@ -1606,7 +1985,7 @@
     ((list A) --> number) load (string --> symbol) make-array ((list number) --> (array A))
     maxinferences (number --> number) map
     ((A --> B) --> ((list A) --> (list B))) not (boolean --> boolean) 
-    new-assoc-type (symbol --> (symbol --> symbol))
+    new-assoc-type ((A --> boolean) --> (symbol --> symbol))
     notes-in  (goals --> (list note)) nth (number --> ((list A) --> A)) number?
     (A --> boolean) occurs-check (symbol --> boolean) occurrences (A --> (B --> number)) or
     (boolean --> (boolean --> boolean)) prf ((A --> B) --> (A --> B)) 
@@ -1629,7 +2008,8 @@
     (symbol --> boolean) step (symbol --> boolean) string? (A --> boolean) swap
     (number --> (number --> (goals --> goals))) strong-warning (symbol --> boolean)
     symbol? (A --> boolean) tail
-    ((list A) --> (list A)) tc (symbol --> boolean) system (string --> string)
+    ((list A) --> (list A)) tc (symbol --> boolean) turbo (symbol --> boolean) 
+    system (string --> string)
     theory-size (symbol --> number) thin (number --> (goals --> goals))
     thm-intro (symbol --> symbol) time (A --> A) time-proof
     ((goals --> goals) --> ((list wff) --> (wff --> boolean))) to-goals
@@ -1701,18 +2081,7 @@
   (COMPILE NIL (LIST 'LAMBDA () (st_code TYPE)))))
 
 (DEFUN st_code (Type)
- (LET ((Vs (extract_vars Type))) (st_code* Vs (bld_st_code Vs Type))))
-
-(DEFUN extract_vars (V5885) (extract_vars* V5885 NIL))
-
-(DEFUN extract_vars* (V5890 V5891)
- (COND
-  ((wrapper (variable? V5890)) (THE LIST (union (CONS V5890 NIL) V5891)))
-  ((CONSP V5890)
-   (THE LIST
-    (union (extract_vars* (CAR V5890) V5891)
-     (extract_vars* (CDR V5890) V5891))))
-  (T V5891)))
+ (LET ((Vs (extract_variables Type))) (st_code* Vs (bld_st_code Vs Type))))
 
 (DEFUN bld_st_code (Vs Type)
  (COND ((NULL Type) NIL)
@@ -1915,6 +2284,13 @@
 (DEFUN dump (X) (PROGV '(*dump-file*) (LIST (FORMAT NIL "~A.lsp" X)) (load X)))
 
 (DEFUN load (File) 
+   #+ALLEGRO (HANDLER-BIND (((OR COMMON-LISP-USER::SIMPLE-WARNING 
+                COMMON-LISP-USER::COMPILER-UNDEFINED-FUNCTIONS-CALLED-WARNING)
+                  #'(LAMBDA (C) (MUFFLE-WARNING))))
+                      (load-help File))
+   #+(OR CLISP CMU SBCL) (load-help File))
+
+(DEFUN load-help (File)
  (TIME (evaluate_file_contents (MAPCAR 'macroexpand (read-file File))))
  (TERPRI) 
  'loaded)
@@ -2039,10 +2415,12 @@
             (T (MAPCAR 'macroexpand Input)))))
 
 (DEFUN eof? (V5494 V5495 V5496 V5497 V5498 V5499 V5500 V5501)
+  (DECLARE (IGNORE V5494 V5496 V5497 V5498 V5499 V5500 V5501))
  (COND ((NULL V5495) 'true) 
           (T 'false)))
 
 (DEFUN endinput? (V5556 V5557 V5558 V5559 V5560 V5561 V5562 V5563)
+ (DECLARE (IGNORE V5556 V5559))
  (COND ((EQUAL #\^ V5557) (error "input aborted~%"))
   ((AND (EQUAL #\Newline V5557) 
           (CONSP V5558) 
@@ -2059,7 +2437,7 @@
  (COND
   ((wrapper
     (FUNCALL V5368 V5360 V5361 V5362 V5363 V5364 V5365 V5366 V5367))
-   (expand-mlet (assemble-chars V5362 V5364 V5365 V5366 V5367)))
+      (recurse-let (assemble-chars V5362 V5364 V5365 V5366 V5367)))
   ((EQUAL #\Newline V5361)
    (read-user-input V5360 (read-user-input-stream V5360) (CONS #\Newline V5362)
     (THE NUMBER (+ 1 V5363)) (incl V5363 V5364) (incl V5363 V5365) V5366 V5367 V5368))
@@ -2158,25 +2536,20 @@
    (read-user-input V5360 (read-user-input-stream V5360) (CONS V5361 V5362)
     V5363 V5364 V5365 V5366 V5367 V5368))))
 
-(DEFUN expand-mlet (V33)
- (COND
-  ((AND (CONSP V33) (EQ '@p (CAR V33)) (CONSP (CDR V33))
-    (CONSP (CDR (CDR V33))) (CONSP (CDR (CDR (CDR V33)))))
-   (LET* ((V34 (CDR V33)))
-    (expand-mlet (CONS '@p (CONS (CAR V34) (CONS (CONS '@p (CDR V34)) NIL))))))
-  ((AND (CONSP V33) (EQ 'mlet (CAR V33)) (CONSP (CDR V33))
-    (CONSP (CDR (CDR V33))) (CONSP (CDR (CDR (CDR V33))))
-    (CONSP (CDR (CDR (CDR (CDR V33))))))
-   (LET* ((V35 (CDR V33)) (V36 (CDR V35)))
-    (expand-mlet
-     (CONS 'let
-      (CONS (CAR V35) (CONS (CAR V36) (CONS (CONS 'mlet (CDR V36)) NIL)))))))
-  ((AND (CONSP V33) (EQ 'mlet (CAR V33)) (CONSP (CDR V33))
-    (CONSP (CDR (CDR V33))) (CONSP (CDR (CDR (CDR V33))))
-    (NULL (CDR (CDR (CDR (CDR V33))))))
-   (expand-mlet (CONS 'let (CDR V33))))
-  ((CONSP V33) (map-dotted-pair 'expand-mlet V33)) 
-  (T V33)))
+(DEFUN recurse-let (V7)
+  (COND
+   ((AND (CONSP V7) (EQ 'let (CAR V7)) (CONSP (CDR V7)) (CONSP (CDR (CDR V7)))
+         (CONSP (CDR (CDR (CDR V7)))) (CONSP (CDR (CDR (CDR (CDR V7))))))
+    (LET* ((V8 (CDR V7)) (V9 (CDR V8)))
+      (recurse-let
+       (CONS 'let
+             (CONS (CAR V8)
+                   (CONS (CAR V9) (CONS (CONS 'let (CDR V9)) NIL)))))))
+   ((CONSP V7) (MAPCAR 'recurse-let V7)) (T V7)))
+
+(DEFUN mlet (&REST X)
+  (DECLARE (IGNORE X))
+  (ERROR "mlet has been discontinued after 8.0; use let instead.~%"))
 
 (DEFUN map-dotted-pair (V96 V97)
  (COND ((NULL V97) NIL)
@@ -2263,6 +2636,7 @@
 
 (DEFUN output (&REST ARGS) 
   (FORMAT T (sanitise-string (APPLY 'FORMAT (CONS NIL ARGS))))
+  (FORCE-OUTPUT)
   "done")
 
 (DEFUN sanitise-string (String)
@@ -2478,8 +2852,6 @@
 
 (DEFMACRO time (X) (LIST 'TIME X))
 
-(DEFUN gensym (X) (GENTEMP X))
-
 (DEFUN implementation_error (Func)
  (ERROR "Qi implementation error in ~A: report to dr.mtarver@ukonline.co.uk~%" Func))
 
@@ -2497,7 +2869,13 @@
   (EXT:SAVEINITMEM)
   #+CMU
   (EXT:SAVE-LISP "Qi.core" :INIT-FUNCTION 'qi::qi :PRINT-HERALD NIL)
-  #-(OR CLISP CMU)
+  #+ALLEGRO 
+   (PROGN (SETQ EXCL:*RESTART-INIT-FUNCTION* 'qi::qi)
+          (EXCL:DUMPLISP :NAME (FORMAT NIL "~A_~A.dxl" 'Qi *version*) 
+               :SUPPRESS-ALLEGRO-CL-BANNER T))
+  #+SBCL
+     (SB-EXT:SAVE-LISP-AND-DIE "Qi.core" :TOPLEVEL 'qi::qi)
+  #-(OR CLISP CMU ALLEGRO SBCL)
   (ERROR "Unknown platform to Qi: ~A" (LISP-IMPLEMENTATION-TYPE)))
 
 (DEFUN quit ()
@@ -2505,7 +2883,11 @@
   (EXT:EXIT)
   #+CMU
   (EXT:QUIT)
-  #-(OR CLISP CMU)
+  #+ALLEGRO
+  (EXCL:EXIT)  
+  #+SBCL
+  (SB-EXT:QUIT)
+  #-(OR CLISP CMU ALLEGRO SBCL)
   (ERROR "Unknown platform to Qi: ~A" (LISP-IMPLEMENTATION-TYPE)))
 
 (DEFUN read-char (X)
@@ -2622,8 +3004,8 @@
 
 (DEFUN compile-synonym (V5379 V5380 V5381 V5382)
  (IF (EQ 'true (test-valid-synonym? V5379))
-      (PROGN (SETQ *synonyms* (CONS (CONS V5379 (CONS V5380 NIL)) V5381))
-                (SETQ *allsynonyms* (CONS V5379 V5382)))
+      (PROGN (SETQ *synonyms* (CONS (CONS V5379 (CONS (curry_type V5380) NIL)) V5381))
+             (SETQ *allsynonyms* (CONS V5379 V5382)))
       (FORMAT 'T "Skipping ~A with ~A; invalid synonym.~%" V5379 V5380)))
 
 (DEFUN test-valid-synonym? (V5383)
@@ -2721,7 +3103,8 @@
  (PROG ()
     (licence)
     (credit) 
-    LOOP    (initialise_environment)
+    LOOP    
+            (initialise_environment)
                     (prompt) 
                     (FORCE-OUTPUT)
                     (read-evaluate-print) 
@@ -2762,6 +3145,7 @@
 (DEFUN  lookat-GPL ()
    (ED "GPL.txt")
    (licence)) 
+
 (DEFUN record_input_on_history ()
    (PUSH (NREVERSE *read-user-input-characters*) *history*))    
 
@@ -2774,7 +3158,7 @@
 
 (DEFUN version (String) (SETQ *version* String))
 
-(SETQ *version* "version 7.2")
+(SETQ *version* "version 9.0 (Turbo-E)")
 
 (DEFUN credit ()
   (FORMAT  T "~%Qi 2007, Copyright (C) 2001-2007 Mark Tarver~%")
@@ -2936,7 +3320,7 @@
 
 (DEFVAR *alphabet* '(A B C D E F G H I J K L M N O P Q R S T U V W X Y Z))
 
-(DEFUN pretty_type (V6688) (mult_subst *alphabet* (extract_vars V6688) V6688))
+(DEFUN pretty_type (V6688) (mult_subst *alphabet* (extract_variables V6688) V6688))
 
 (DEFUN mult_subst (V6693 V6694 V6695)
  (COND ((NULL V6693) V6695) ((NULL V6694) V6695)
@@ -2951,19 +3335,30 @@
   (IF (EQ 'true (THE SYMBOL (empty? Code)))
    (error "you have not defined ~A in Qi~%" V6697) Code)))
 
-(DEFUN track_function (V6699)
+(DEFUN track_function (V23)
  (COND
-  ((AND (CONSP V6699) (CONSP (CDR V6699)) (CONSP (CDR (CDR V6699)))
-    (CONSP (CDR (CDR (CDR V6699)))) (NULL (CDR (CDR (CDR (CDR V6699))))))
-   (LET*
-    ((V6700 (CDR V6699)) (V6701 (CAR V6700)) (V6702 (CDR V6700))
-     (V6703 (CAR V6702)))
+  ((AND (CONSP V23) (CONSP (CDR V23)) (CONSP (CDR (CDR V23)))
+    (CONSP (CDR (CDR (CDR V23)))) (NULL (CDR (CDR (CDR (CDR V23))))))
+   (LET* ((V24 (CDR V23)) (V25 (CAR V24)) (V26 (CDR V24)) (V27 (CAR V26)))
     (EVAL
-     (CONS (CAR V6699)
-      (CONS V6701
-       (CONS V6703
-        (CONS (insert_tracking_code V6701 V6703 (CAR (CDR V6702))) NIL)))))))
+     (CONS (CAR V23)
+      (CONS V25
+       (CONS V27
+        (CONS (insert_tracking_code V25 V27 (CAR (CDR V26))) NIL)))))))
+  ((AND (CONSP V23) (CONSP (CDR V23)) (CONSP (CDR (CDR V23)))
+    (CONSP (CDR (CDR (CDR V23)))) (CONSP (CDR (CDR (CDR (CDR V23)))))
+    (NULL (CDR (CDR (CDR (CDR (CDR V23)))))))
+   (LET*
+    ((V28 (CDR V23)) (V29 (CAR V28)) (V30 (CDR V28)) (V31 (CAR V30))
+     (V32 (CDR V30)))
+    (EVAL
+     (CONS (CAR V23)
+      (CONS V29
+       (CONS V31
+        (CONS (CAR V32)
+         (CONS (insert_tracking_code V29 V31 (CAR (CDR V32))) NIL))))))))
   (T (implementation_error 'track_function))))
+
 
 (DEFUN insert_tracking_code (V6704 V6705 V6706)
  (CONS 'PROGN
@@ -3019,29 +3414,48 @@
 
 (DEFUN profile (V6720) (profile-help (source_code V6720)))
 
-(DEFUN profile-help (V6725)
+(DEFUN profile-help (V37)
  (COND
-  ((AND (CONSP V6725) (CONSP (CDR V6725)) (CONSP (CDR (CDR V6725))))
+  ((AND (CONSP V37) (CONSP (CDR V37)) (CONSP (CDR (CDR V37)))
+    (CONSP (CDR (CDR (CDR V37)))) (CONSP (CDR (CDR (CDR (CDR V37)))))
+    (NULL (CDR (CDR (CDR (CDR (CDR V37)))))))
    (LET*
-    ((V6726 (CAR V6725)) (V6727 (CDR V6725)) (V6728 (CAR V6727))
-     (V6729 (CDR V6727)) (V6730 (CAR V6729)))
+    ((V38 (CAR V37)) (V39 (CDR V37)) (V40 (CAR V39)) (V41 (CDR V39))
+     (V42 (CAR V41)) (V43 (CDR V41)))
     (LET ((PrfFunc (gensym "Profile")))
      (do
       (EVAL
-       (CONS V6726
-        (CONS V6728
-         (CONS V6730
-          (CONS
-           (CONS 'profile_func (CONS V6728 (CONS (CONS PrfFunc V6730) NIL)))
+       (CONS V38
+        (CONS V40
+         (CONS V42
+          (CONS (CONS 'profile_func (CONS V40 (CONS (CONS PrfFunc V42) NIL)))
            NIL)))))
       (EVAL
-       (CONS V6726
+       (CONS V38
         (CONS PrfFunc
-         (CONS V6730 (SUBST PrfFunc V6728 (CDR V6729) ':TEST 'EQUAL)))))
-      (COMPILE V6728) (COMPILE PrfFunc) V6728))))
+         (CONS V42
+          (CONS (CAR V43)
+           (CONS (SUBST PrfFunc V40 (CAR (CDR V43)) ':TEST 'EQUAL) NIL))))))
+      (COMPILE V40) (COMPILE PrfFunc) V40))))
+  ((AND (CONSP V37) (CONSP (CDR V37)) (CONSP (CDR (CDR V37))))
+   (LET*
+    ((V44 (CAR V37)) (V45 (CDR V37)) (V46 (CAR V45)) (V47 (CDR V45))
+     (V48 (CAR V47)))
+    (LET ((PrfFunc (gensym "Profile")))
+     (do
+      (EVAL
+       (CONS V44
+        (CONS V46
+         (CONS V48
+          (CONS (CONS 'profile_func (CONS V46 (CONS (CONS PrfFunc V48) NIL)))
+           NIL)))))
+      (EVAL
+       (CONS V44
+        (CONS PrfFunc (CONS V48 (SUBST PrfFunc V46 (CDR V47) ':TEST 'EQUAL)))))
+      (COMPILE V46) (COMPILE PrfFunc) V46))))
   (T (error "Cannot profile.~%"))))
 
-(DEFUN unprofile (V6731) (untrack_function V6731))
+(DEFUN unprofile (V6731) (untrack V6731))
 
 (DEFMACRO profile_func (F EXPR)
    `(PROGN 
@@ -3052,6 +3466,7 @@
            RESULT)))
 
 (DEFUN profile-results (X)
+ (DECLARE (IGNORE X)) 
  (FORMAT T "~{~A, ~A secs~%~}~%" (calibrate-profile (SYMBOL-PLIST 'profile-stats)))
  (SETF (SYMBOL-PLIST 'profile-stats) NIL) 
  'profiled)
@@ -3068,7 +3483,7 @@
 
 (DEFVAR *atp-credits* "Qi Proof Tool")
 
-(DEFUN inferences (V6755) *inferences*)
+(DEFUN inferences (V6755) (DECLARE (IGNORE V6755)) *inferences*)
 
 (DEFVAR *spy* 'false)
 
@@ -3191,26 +3606,23 @@
 
 (DEFUN unprf (V6931) (COMPILE (EVAL (source_code V6931))))
 
-(DEFUN prf1 (V951)
+(DEFUN prf1 (V57)
  (COND
-  ((AND (CONSP V951) (CONSP (CDR V951)) (CONSP (CDR (CDR V951)))
-    (CONSP (CAR (CDR (CDR V951))))
-    (NULL (CDR (CAR (CDR (CDR V951)))))
-    (CONSP (CDR (CDR (CDR V951))))
-    (NULL (CDR (CDR (CDR (CDR V951)))))
-    (wrapper (tactic? (CAR (CDR V951)))))
-   (LET*
-    ((V952 (CDR V951)) (V953 (CAR V952)) (V954 (CDR V952)) (V955 (CAR V954)))
+  ((AND (CONSP V57) (CONSP (CDR V57)) (CONSP (CDR (CDR V57)))
+    (CONSP (CAR (CDR (CDR V57)))) (NULL (CDR (CAR (CDR (CDR V57)))))
+    (CONSP (CDR (CDR (CDR V57)))) (NULL (CDR (CDR (CDR (CDR V57)))))
+    (wrapper (tactic? (CAR (CDR V57)))))
+   (LET* ((V58 (CDR V57)) (V59 (CAR V58)) (V60 (CDR V58)) (V61 (CAR V60)))
     (EVAL
-     (CONS (CAR V951)
-      (CONS V953
-       (CONS V955
+     (CONS (CAR V57)
+      (CONS V59
+       (CONS V61
         (CONS
          (CONS 'update-proof-if-needed
-          (CONS (CAR V955) (CONS (CONS 'QUOTE (CONS V953 NIL)) (CDR V954))))
+          (CONS (CAR V61) (CONS (CONS 'QUOTE (CONS V59 NIL)) (CDR V60))))
          NIL)))))))
-  ((AND (CONSP V951) (CONSP (CDR V951)))
-   (error "~A is not a tactic~%" (CAR (CDR V951))))
+  ((AND (CONSP V57) (CONSP (CDR V57)))
+   (error "~A is not a tactic~%" (CAR (CDR V57))))
   (T (implementation_error 'prf1))))
 
 (DEFUN update-proof-if-needed (V1892 V1893 V1894)
@@ -3452,8 +3864,6 @@
      (process_body (CDR V5363)))))
   (T (error "~%syntax error in ~A~%" V5362))))
 
-(DEFUN compile-prolog (V5617) (MAPCAR 'compile_clauses (group_clauses V5617)))
-
 (DEFUN compile-prolog (V5360)
  (MAPCAR 'compile_clauses (group_clauses (MAPCAR 'test-for-naive-abs V5360))))
 
@@ -3540,26 +3950,25 @@
    'true)
   (T 'false)))
 
-(DEFUN compile_clauses (V10932)
+(DEFUN compile_clauses (V62)
  (COND
-  ((AND (CONSP V10932) (CONSP (CAR V10932)) (CONSP (CAR (CAR V10932)))
-    (CONSP (CDR (CAR V10932))) (EQ ':- (CAR (CDR (CAR V10932))))
-    (CONSP (CDR (CDR (CAR V10932)))) (NULL (CDR (CDR (CDR (CAR V10932))))))
-   (LET* ((V10933 (CAR V10932)) (V10934 (CAR V10933)))
-    (LET ((Fparams (make_fparams (CDR V10934))))
+  ((AND (CONSP V62) (CONSP (CAR V62)) (CONSP (CAR (CAR V62)))
+    (CONSP (CDR (CAR V62))) (EQ ':- (CAR (CDR (CAR V62))))
+    (CONSP (CDR (CDR (CAR V62)))) (NULL (CDR (CDR (CDR (CAR V62))))))
+   (LET* ((V63 (CAR V62)) (V64 (CAR V63)))
+    (LET ((Fparams (make_fparams (CDR V64))))
      (COMPILE
       (EVAL
        (record_source
-        (CONS 'DEFUN
-         (CONS (CAR V10934)
-          (CONS (APPEND Fparams (CONS 'Continuation NIL))
-           (CONS
-            (insert_catch
-             (CONS (CAR (CDR (CDR V10933))) (CONS (CDR V10932) NIL))
-             (CONS 'OR
-              (THE LIST
-               (map #'(LAMBDA (Y) (compile_clause Y Fparams)) V10932))))
-            NIL))))))))))
+        (test_ignore_declarations Fparams NIL
+         (CONS 'DEFUN
+          (CONS (CAR V64)
+           (CONS (APPEND Fparams (CONS 'Continuation NIL))
+            (CONS
+             (insert_catch (CONS (CAR (CDR (CDR V63))) (CONS (CDR V62) NIL))
+              (CONS 'OR
+               (THE LIST (MAPCAR #'(LAMBDA (Y) (compile_clause Y Fparams)) V62))))
+             NIL)))))))))))
   (T (implementation_error 'compile_clauses))))
 
 (DEFUN insert_catch (V10941 V10942)
@@ -3712,151 +4121,209 @@
     (EQ 'continuation (CAR (CDR (CDR V5360)))) (CONSP (CDR (CDR (CDR V5360))))
     (NULL (CDR (CDR (CDR (CDR V5360))))))
    (process_continuation (CAR (CDR (CDR (CDR V5360))))))
-  ((wrapper (qi_= V5360 'FAIL)) NIL) 
+  ((EQ V5360 'FAIL) NIL) 
   (T V5360)))
 
-(DEFUN ask (V53)
- (SETQ *logical-inferences* 0)
-  (LET ((Answer (time (run-query V53 (extract_variables V53)))))
-   (output "~%~A logical inference~P~%" *logical-inferences* *logical-inferences*)
-    (IF (EQ 'true Answer) 'yes 'no)))
+(DEFUN process_continuation (V1) (next-call (THE LIST (MAPCAR 'call-literal V1))))
 
-(DEFUN query-prolog (V56)
- (LET ((Result (popstack (prolog-calls V56))))
-  (IF (NULL Result) 'false 
-      (IF (EQ T Result) 'true Result))))
-
-(DEFUN prolog-calls (V14)
- (EVAL (tinker (pc-help (MAPCAR 'process_literal V14)))))
-
-(DEFUN run-query (V54 V55)
+(DEFUN call-literal (V4)
  (COND
-  ((CONSP V54)
-   (query-prolog (CONS V54 (CONS (CONS 'answer (CONS V55 NIL)) NIL))))
-  (T (ERROR "~S is not a valid query.~%" V54))))
+  ((AND (CONSP V4) (wrapper (eager-call? (CAR V4))))
+   (CONS (map-eager (CAR V4)) (eagercalls (CDR V4))))
+  ((AND (CONSP V4) (wrapper (lazy-call? (CAR V4))))
+   (CONS (CAR V4) (lazycalls (CDR V4))))
+  ((CONSP V4) (CONS (CAR V4) (THE LIST (MAPCAR 'quote (CDR V4)))))
+  (T (implementation_error 'call-literal))))
 
-(DEFUN tinker (V7)
- (COND
-  ((EQ 'Continuation V7)
-   (CONS 'FUNCTION (CONS (CONS 'LAMBDA (CONS NIL (CONS 'T NIL))) NIL)))
-  ((wrapper (variable? V7)) (CONS 'QUOTE (CONS V7 NIL)))
-  ((CONSP V7) (CONS (CAR V7) (MAPCAR 'tinker (CDR V7)))) 
-  (T V7)))
+(DEFUN eager-call? (V11)
+ (COND ((EQ 'eval!* V11) 'true) ((EQ 'when!* V11) 'true) ((EQ 'is!* V11) 'true)
+  (T 'false)))
 
-(DEFUN process_continuation (V10944)
+(DEFUN lazy-call? (V16)
+ (COND ((EQ 'eval* V16) 'true) ((EQ 'when* V16) 'true) ((EQ 'is* V16) 'true)
+  (T 'false)))
+
+(DEFUN map-eager (V17)
+ (COND ((EQ 'eval!* V17) 'eval*) ((EQ 'when!* V17) 'when*)
+  ((EQ 'is!* V17) 'is*) (T (implementation_error 'map-eager))))
+
+(DEFUN eagercalls (V18)
+ (THE LIST
+  (MAPCAR #'(LAMBDA (X) (lisp_code (extract_variables X) X))
+   (THE LIST (MAPCAR 'eagerderefvars V18)))))
+
+(DEFUN lazycalls (V23)
+ (THE LIST
+  (MAPCAR #'(LAMBDA (X) (lisp_code (extract_variables X) X))
+   (THE LIST (MAPCAR 'lazyderefvars V23)))))
+
+(DEFUN eagerderefvars (V34)
  (COND
-  ((AND (CONSP V10944) (CONSP (CAR V10944))
-    (wrapper (evaluable_predicate? (CAR (CAR V10944)))))
-   (LET* ((V10945 (CAR V10944)) (V10946 (CAR V10945)))
-    (CONS (mapF V10946)
-     (APPEND
-      (THE LIST
-       (MAPCAR
-        #'(LAMBDA (Term) (process_evaluable_terms (mode_deref V10946) Term))
-        (CDR V10945)))
-      (CONS (pc-help (CDR V10944)) NIL)))))
-  ((AND (CONSP V10944) (CONSP (CAR V10944)) (EQ 'cut* (CAR (CAR V10944)))
-    (NULL (CDR (CAR V10944))) (NULL (CDR V10944)))
+  ((AND (CONSP V34) (EQ '/. (CAR V34)) (CONSP (CDR V34))
+    (CONSP (CDR (CDR V34))) (NULL (CDR (CDR (CDR V34)))))
+   (LET* ((V35 (CDR V34)))
+    (CONS '/. (CONS (CAR V35) (CONS (eagerderefvars (CAR (CDR V35))) NIL)))))
+  ((AND (CONSP V34) (EQ 'let (CAR V34)) (CONSP (CDR V34))
+    (CONSP (CDR (CDR V34))) (CONSP (CDR (CDR (CDR V34))))
+    (NULL (CDR (CDR (CDR (CDR V34))))))
+   (LET* ((V36 (CDR V34)) (V37 (CDR V36)))
+    (CONS 'let
+     (CONS (CAR V36)
+      (CONS (eagerderefvars (CAR V37))
+       (CONS (eagerderefvars (CAR (CDR V37))) NIL))))))
+  ((wrapper (variable? V34)) (CONS 'deref (CONS V34 NIL)))
+  ((CONSP V34) (CONS (eagerderefvars (CAR V34)) (eagerderefvars (CDR V34))))
+  (T V34)))
+
+(DEFUN lazyderefvars (V38)
+ (COND
+  ((AND (CONSP V38) (EQ '/. (CAR V38)) (CONSP (CDR V38))
+    (CONSP (CDR (CDR V38))) (NULL (CDR (CDR (CDR V38)))))
+   (LET* ((V39 (CDR V38)))
+    (CONS '/. (CONS (CAR V39) (CONS (lazyderefvars (CAR (CDR V39))) NIL)))))
+  ((AND (CONSP V38) (EQ 'let (CAR V38)) (CONSP (CDR V38))
+    (CONSP (CDR (CDR V38))) (CONSP (CDR (CDR (CDR V38))))
+    (NULL (CDR (CDR (CDR (CDR V38))))))
+   (LET* ((V40 (CDR V38)) (V41 (CDR V40)))
+    (CONS 'let
+     (CONS (CAR V40)
+      (CONS (lazyderefvars (CAR V41))
+       (CONS (lazyderefvars (CAR (CDR V41))) NIL))))))
+  ((wrapper (variable? V38)) (CONS 'lazyderef (CONS V38 NIL)))
+  ((CONSP V38) (CONS (lazyderefvars (CAR V38)) (lazyderefvars (CDR V38))))
+  (T V38)))
+
+(DEFUN quote (V42)
+ (COND
+  ((AND (CONSP V42) (EQ '/. (CAR V42)) (CONSP (CDR V42))
+    (CONSP (CDR (CDR V42))) (NULL (CDR (CDR (CDR V42)))))
+   (LET* ((V43 (CDR V42)))
+    (CONS '/. (CONS (CAR V43) (CONS (quote (CAR (CDR V43))) NIL)))))
+  ((AND (CONSP V42) (EQ 'let (CAR V42)) (CONSP (CDR V42))
+    (CONSP (CDR (CDR V42))) (CONSP (CDR (CDR (CDR V42))))
+    (NULL (CDR (CDR (CDR (CDR V42))))))
+   (LET* ((V44 (CDR V42)) (V45 (CDR V44)))
+    (CONS 'let
+     (CONS (CAR V44)
+      (CONS (quote (CAR V45)) (CONS (quote (CAR (CDR V45))) NIL))))))
+  ((AND (CONSP V42) (EQ 'cons (CAR V42)) (CONSP (CDR V42))
+    (CONSP (CDR (CDR V42))) (NULL (CDR (CDR (CDR V42)))))
+   (LET* ((V46 (CDR V42)))
+    (CONS 'CONS (CONS (quote (CAR V46)) (CONS (quote (CAR (CDR V46))) NIL)))))
+  ((AND (CONSP V42) (wrapper (list? V42)))
+   (CONS 'LIST (THE LIST (MAPCAR 'quote V42))))
+  ((CONSP V42)
+   (CONS 'CONS (CONS (quote (CAR V42)) (CONS (quote (CDR V42)) NIL))))
+  ((wrapper
+    (anyof
+     (CONS 'empty?
+      (CONS 'number? (CONS 'variable? (CONS 'string? (CONS 'character? NIL)))))
+     V42))
+   V42)
+  ((EQ '_ V42) (CONS 'GENSYM (CONS "V" NIL)))
+  (T (CONS 'QUOTE (CONS V42 NIL)))))
+
+(DEFUN list? (V55)
+ (COND ((NULL V55) 'true) ((CONSP V55) (list? (CDR V55))) (T 'false)))
+
+(DEFUN anyof (V58 V59)
+ (COND ((NULL V58) 'false)
+  ((CONSP V58) (THE SYMBOL (or (apply (CAR V58) V59) (anyof (CDR V58) V59))))
+  (T (implementation_error 'anyof))))
+
+(DEFUN next-call (V62)
+ (COND ((NULL V62) (CONS 'popstack (CONS 'Continuation NIL)))
+  ((AND (CONSP V62) (CONSP (CAR V62)) (EQ 'cut* (CAR (CAR V62)))
+    (NULL (CDR (CAR V62))))
    (CONS 'OR
-    (CONS (CONS 'popstack (CONS 'Continuation NIL))
-     (CONS (CONS 'RETURN (CONS NIL NIL)) NIL))))
-  ((AND (CONSP V10944) (CONSP (CAR V10944)) (EQ 'cut* (CAR (CAR V10944)))
-    (NULL (CDR (CAR V10944))))
-   (CONS 'OR
-    (CONS (process_continuation (CDR V10944))
-     (CONS (CONS 'RETURN (CONS NIL NIL)) NIL))))
-  ((AND (CONSP V10944) (CONSP (CAR V10944)))
-   (LET* ((V10947 (CAR V10944)))
-    (CONS (CAR V10947)
-     (APPEND (THE LIST (map 'quote (CDR V10947)))
-      (CONS (pc-help (CDR V10944)) NIL)))))
-  (T (implementation_error 'process_continuation))))
+    (CONS (next-call (CDR V62)) (CONS (CONS 'RETURN (CONS NIL NIL)) NIL))))
+  ((CONSP V62)
+   (APPEND (CAR V62) (CONS (combine-into-continuation (CDR V62)) NIL)))
+  (T (implementation_error 'next-call))))
 
-(DEFUN mode_deref (V1030)
- (COND ((EQ 'is* V1030) 'lazyderef) ((EQ 'when* V1030) 'lazyderef)
-  ((EQ 'eval* V1030) 'lazyderef) (T 'deref)))
+(DEFUN combine-into-continuation (V63)
+ (COND ((NULL V63) 'Continuation)
+  ((AND (CONSP V63) (CONSP (CAR V63)) (EQ 'cut* (CAR (CAR V63)))
+    (NULL (CDR (CAR V63))))
+   (enclose
+    (CONS 'OR
+     (CONS (CONS 'popstack (CONS (combine-into-continuation (CDR V63)) NIL))
+      (CONS (CONS 'RETURN (CONS NIL NIL)) NIL)))))
+  ((CONSP V63)
+   (enclose
+    (APPEND (CAR V63) (CONS (combine-into-continuation (CDR V63)) NIL))))
+  (T (implementation_error 'combine-into-continuation))))
 
-(DEFUN mapF (V1031)
- (COND ((EQ 'is!* V1031) 'is*) ((EQ 'when!* V1031) 'when*)
-  ((EQ 'eval!* V1031) 'eval*) 
-  (T V1031)))
+(DEFUN enclose (V64)
+ (CONS 'FUNCTION (CONS (CONS 'LAMBDA (CONS NIL (CONS V64 NIL))) NIL)))
+
+(DEFUN ask (V65)
+ (COND
+  ((CONSP V65)
+   (LET* ((V66 (CDR V65)))
+    (LET ((F* (concat (CAR V65) '*)))
+     (LET ((Vars (extract_variables V66)))
+      (LET
+       ((Calls
+         (process_continuation
+          (CONS (CONS F* V66)
+           (CONS (answer_clause V66) (CONS (CONS 'duff NIL) NIL))))))
+       (LET ((Program (quote-variables Calls Vars)))
+        (LET ((Start (GET-INTERNAL-RUN-TIME)))
+         (LET ((Eval (EVAL Program)))
+          (LET ((Finish (GET-INTERNAL-RUN-TIME)))
+           (LET ((Time (calibrate (- Finish Start))))
+            (LET ((Inferences *logical-inferences*))
+             (LET
+              ((LIPS
+                (IF (ZEROP Time) 'infinite
+                 (round (/ Inferences Time)))))
+              (LET
+               ((Print
+                 (output
+                  "~%run time ~A seconds ~%~A logical inference~P~%~A LIPS~%"
+                  Time Inferences Inferences LIPS)))
+               (IF Eval 'true 'false))))))))))))))
+  (T (error "ask expects a goal: not ~S~%" V65))))
+
+(DEFUN quote-variables (V71 V72)
+ (COND ((wrapper (element? V71 V72)) (CONS 'QUOTE (CONS V71 NIL)))
+  ((CONSP V71)
+   (CONS (quote-variables (CAR V71) V72) (quote-variables (CDR V71) V72)))
+  (T V71)))
+
+(DEFUN answer_clause (V73) (CONS 'answer* (CONS (extract_variables V73) NIL)))
+
+(DEFUN answer* (Vars Continuation)
+  (DECLARE (IGNORE Continuation))
+  (COND ((NULL Vars) T)
+         (T (MAPC (FUNCTION 
+         (LAMBDA (V) (output "~%~A = ~S~%" V (deref V)))) Vars)
+            (NOT (Y-OR-N-P "~%More?")))))
+
+(DEFUN call-prolog (V85)
+ (COND
+  ((CONSP V85)
+   (LET
+    ((Answer
+      (APPLY (concat (CAR V85) '*) (APPEND (CDR V85) (CONS 'return-T NIL)))))
+    (IF (EQ Answer T) 'true
+     (IF (NULL Answer) 'false 
+         Answer))))
+  (T (error "call-prolog expects a goal: not ~S~%" V85))))
+
+(DEFUN return-T NIL T)
 
 (DEFUN when* (V1039 V1040)
 (INCF *logical-inferences*)
  (COND ((EQ 'true V1039) (popstack V1040)) ((EQ 'false V1039) NIL)
   (T (error "when expects a boolean, not ~S.~%" V1039))))
 
-(DEFUN eval* (V1045 V1050) (INCF *logical-inferences*) (popstack V1050))
+(DEFUN eval* (V1045 V1050) (DECLARE (IGNORE V1045)) (INCF *logical-inferences*) (popstack V1050))
 
 (DEFUN is* (V1051 V1052 V1053)
 (INCF *logical-inferences*)
  (PROGV (CONS V1051 NIL) (CONS V1052 NIL) (popstack V1053)))
-
-(DEFUN evaluable_predicate? (V1054)
- (THE SYMBOL
-  (element? V1054
-   (CONS 'is*
-    (CONS 'when*
-     (CONS 'eval* (CONS 'is!* (CONS 'when!* (CONS 'eval!* NIL)))))))))
-
-(DEFUN process_evaluable_terms (V1062 V1063)
- (COND
-  ((CONSP V1063)
-   (CONS (CAR V1063)
-    (THE LIST
-     (MAPCAR #'(LAMBDA (Term) (process_evaluable_terms V1062 Term))
-      (CDR V1063)))))
-  ((wrapper (variable? V1063)) (CONS V1062 (CONS V1063 NIL)))
-  ((wrapper (or (number? V1063) (or (character? V1063) (string? V1063))))
-   V1063)
-  ((AND (EQ '- V1062) (NULL V1063)) NIL)
-  ((EQ '_ V1063) (CONS 'GENSYM (CONS "V" NIL)))
-  (T (CONS 'QUOTE (CONS V1063 NIL)))))
-
-(DEFUN pc-help (V10952)
- (COND ((NULL V10952) 'Continuation)
-  ((AND (CONSP V10952) (CONSP (CAR V10952))
-    (wrapper (evaluable_predicate? (CAR (CAR V10952)))))
-   (LET* ((V10953 (CAR V10952)) (V10954 (CAR V10953)))
-    (CONS 'FUNCTION
-     (CONS
-      (CONS 'LAMBDA
-       (CONS NIL
-        (CONS
-         (APPEND
-          (CONS (mapF V10954)
-           (THE LIST
-            (MAPCAR
-             #'(LAMBDA (Term)
-                (process_evaluable_terms (mode_deref V10954) Term))
-             (CDR V10953))))
-          (CONS (pc-help (CDR V10952)) NIL))
-         NIL)))
-      NIL))))
-  ((AND (CONSP V10952) (CONSP (CAR V10952)) (EQ 'cut* (CAR (CAR V10952)))
-    (NULL (CDR (CAR V10952))))
-   (CONS 'FUNCTION
-    (CONS
-     (CONS 'LAMBDA
-      (CONS NIL
-       (CONS
-        (CONS 'OR
-         (CONS (CONS 'popstack (CONS (pc-help (CDR V10952)) NIL))
-          (CONS (CONS 'RETURN (CONS NIL NIL)) NIL)))
-        NIL)))
-     NIL)))
-  ((AND (CONSP V10952) (CONSP (CAR V10952)))
-   (LET* ((V10955 (CAR V10952)))
-    (CONS 'FUNCTION
-     (CONS
-      (CONS 'LAMBDA
-       (CONS NIL
-        (CONS
-         (APPEND (CONS (CAR V10955) (THE LIST (map 'quote (CDR V10955))))
-          (CONS (pc-help (CDR V10952)) NIL))
-         NIL)))
-      NIL))))
-  (T (ERROR "~S is not a valid continuation.~%" V10952))))
 
 (DEFUN rename_vars (V5777)
  (COND ((NULL V5777) NIL)
@@ -3864,27 +4331,6 @@
    (CONS (CONS (CAR V5777) (CONS (CONS 'GENSYM (CONS "V" NIL)) NIL))
     (rename_vars (CDR V5777))))
   (T (implementation_error 'rename_vars))))
-
-(DEFUN quote (V5778)
- (COND
-  ((AND (CONSP V5778) (EQ 'cons (CAR V5778)) (CONSP (CDR V5778))
-    (CONSP (CDR (CDR V5778))) (NULL (CDR (CDR (CDR V5778)))))
-   (LET* ((V5779 (CDR V5778)))
-    (CONS 'CONS
-     (CONS (quote (CAR V5779)) (CONS (quote (CAR (CDR V5779))) NIL)))))
-  ((AND (CONSP V5778) (wrapper (list? V5778)))
-   (CONS 'LIST (THE LIST (map 'quote V5778))))
-  ((CONSP V5778)
-   (CONS 'CONS (CONS (quote (CAR V5778)) (CONS (quote (CDR V5778)) NIL))))
-  ((wrapper (variable? V5778)) V5778)
-  ((wrapper (or (number? V5778) (or (string? V5778) (character? V5778))))
-   V5778)
-  ((NULL V5778) NIL)
-  ((wrapper (qi_= '_ V5778)) (CONS 'GENSYM (CONS "V" NIL)))
-  (T (CONS 'QUOTE (CONS V5778 NIL)))))
-
-(DEFUN list? (V5788)
- (COND ((NULL V5788) 'true) ((CONSP V5788) (list? (CDR V5788))) (T 'false)))
 
 (DEFUN linearise_clause (V5789)
  (COND
@@ -4315,13 +4761,6 @@
  (THE SYMBOL
   (and (THE SYMBOL (variable? V5886)) (THE SYMBOL (variable? V5887)))))
 
-(DEFUN extract_variables (V861)
- (COND ((wrapper (variable? V861)) (CONS V861 NIL))
-  ((CONSP V861)
-   (THE LIST
-    (union (extract_variables (CAR V861)) (extract_variables (CDR V861)))))
-  (T NIL)))
-
 (DEFUN prolog_constant? (V5902)
  (COND ((NULL V5902) 'true) ((wrapper (symbol? V5902)) 'true)
   ((wrapper (number? V5902)) 'true) ((wrapper (boolean? V5902)) 'true)
@@ -4361,13 +4800,6 @@
          (T NIL)))
 
 (DEFUN popstack (Continuation)  (FUNCALL Continuation))
-
-(DEFUN answer* (Vars Continuation)
-  (DECLARE (IGNORE Continuation))
-  (COND ((NULL Vars) T)
-         (T (MAPC (FUNCTION 
-         (LAMBDA (V) (output "~%~A = ~S~%" V (deref V)))) Vars)
-            (NOT (Y-OR-N-P "~%More?")))))
 
 (DEFUN deref (x)
   (COND ((CONSP x) (CONS (deref (CAR x)) (deref (CDR x))))
@@ -4647,7 +5079,7 @@
                                #'(LAMBDA NIL (tt* Z FP2 FP3 Continuation)))))
                           (RETURN NIL))))
                      (RETURN NIL))))))))))))))))))
-    (PROG2 (INCF *logical-inferences*)
+   (PROG2 (INCF *logical-inferences*)
      (LET ((X937 (lazyderef FP1)))
       (AND (CONSP X937)
        (LET ((X938 (lazyderef (CAR X937))))
@@ -6415,7 +6847,7 @@
 (DEFUN prooftool (V5689)
  (COND
   ((EQ '- V5689)
-    (FORMAT 'T "~%~%~A~%~%" *atp-credits*) (SETQ *inferences* 0)
+    (FORMAT T "~%~%~A~%~%" *atp-credits*) (SETQ *inferences* 0)
     (SETQ *problem*
      (CONS (CONS (@p (enter_assumptions 1) (enter_conclusion)) NIL) (CONS NIL (CONS NIL NIL))))
     (SETQ *start* (GET-INTERNAL-RUN-TIME)) 
@@ -6664,20 +7096,26 @@
      (dump-proof-help (CDR V5371) (THE NUMBER (+ V5372 1)))))
   (T (implementation_error 'dump-proof-help))))
 
-(MAPC (FUNCTION (LAMBDA (F) (IMPORT F :COMMON-LISP-USER)))
+(DEFUN := (X Y) (= X Y))
+
+(MAPC (FUNCTION (LAMBDA (F) (EXPORT F)))
          *sysfuncs*)
 
-(MAPC (FUNCTION (LAMBDA (F) (IMPORT F :COMMON-LISP-USER)))
-     '(listit true false @ { } -> <- --> _ $$ where loaded associated
+(MAPC (FUNCTION (LAMBDA (F) (EXPORT F)))
+     '(listit true false @ { } -> <- --> _ $$ mlet where loaded associated
       boolean symbol string character list number array constant?
       ; && mode name >> yes no Context typecheck wff goals
      Accum Sequents Notes Proof Parameters Assumptions ok proved
      compiled verified note call suppose suppose! when when! eval! =!
      profile-stats profiled -*- -s- is is! macroexpand cases
-     y-combinator commit! cut* parameter -*- -s- -o- -end-of-list-))
+     y-combinator commit! cut* parameter -*- -s- -o- -end-of-list- !))
 
-(SHADOWING-IMPORT '! :COMMON-LISP-USER)
-"(SHADOWING-IMPORT ':= :COMMON-LISP-USER)"
+(DEFUN shadow ()
+  #+CLISP (PROGN (SHADOWING-IMPORT '! :COMMON-LISP-USER)
+                 (SHADOWING-IMPORT ':= :COMMON-LISP-USER)))
+
+(shadow)
+
 
 
 

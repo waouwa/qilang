@@ -1,0 +1,1 @@
+sbcl --noinform --core Qi.core
